@@ -3,10 +3,58 @@
 .lp-brand img { object-fit: contain; flex-shrink: 0; }
 .lp-brand strong { display: block; font-size: 21px; font-weight: 600; letter-spacing: -.025em; }
 .lp-brand small { display: block; color: var(--muted-foreground); font-size: 13px; }
+.lp-workspace { min-height: 100vh; font-size: 16px; line-height: 1.5; }
+.lp-skip { position: absolute; left: -9999px; top: 8px; z-index: 60; padding: 10px 16px; background: var(--card); color: var(--foreground); }
+.lp-skip:focus { left: 16px; }
+.lp-topbar { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 24px 40px; border-bottom: 1px solid var(--border); background: var(--card); }
+.lp-top-actions { display: flex; align-items: center; gap: 8px; }
+.lp-account { height: auto; min-height: 48px; text-align: left; }
+.lp-account small { display: block; color: var(--muted-foreground); font-size: 12px; font-weight: 400; }
+.lp-avatar { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; flex-shrink: 0; border-radius: 50%; background: var(--secondary); color: var(--secondary-foreground); font-size: 12px; font-weight: 600; }
+.lp-layout { min-height: calc(100vh - 158px); }
+.lp-with-tabs { max-width: 1280px; margin: auto; }
+.lp-navigation nav { display: flex; gap: 8px; }
+.lp-navigation nav a { min-height: 44px; justify-content: flex-start; font-weight: 400; }
+.lp-navigation nav a[aria-current="page"] { background: var(--accent); color: var(--accent-foreground); font-weight: 600; }
+.lp-with-tabs .lp-navigation { padding: 18px 40px; border-bottom: 1px solid var(--border); }
+.lp-with-tabs .lp-navigation > .lp-eyebrow { display: none; }
+.lp-with-tabs .lp-nav-divider { flex: 1; }
+.lp-with-rail { display: grid; grid-template-columns: 240px minmax(0,1fr); }
+.lp-with-rail .lp-navigation { padding: 32px 20px; border-right: 1px solid var(--border); background: var(--sidebar); color: var(--sidebar-foreground); }
+.lp-with-rail nav { flex-direction: column; }
+.lp-nav-divider { margin: 12px 0; }
+.lp-rail-note { margin-top: 64px; font-size: 13px; line-height: 1.6; opacity: .8; }
+.lp-main { width: 100%; max-width: 1440px; min-width: 0; margin: auto; padding: 48px 40px 80px; }
+.lp-footer { display: flex; justify-content: space-between; gap: 16px; padding: 20px 40px; border-top: 1px solid var(--border); color: var(--muted-foreground); font-size: 12px; }
+.lp-mobile-menu { display: none; }
+.lp-mobile-sheet nav { display: flex; flex-direction: column; gap: 8px; padding: 24px 0; }
+.lp-mobile-sheet nav a { min-height: 44px; justify-content: flex-start; }
+.lp-mobile-sheet nav a[aria-current="page"] { background: var(--accent); color: var(--accent-foreground); font-weight: 600; }
 .lp-eyebrow { margin: 0 0 16px; color: var(--muted-foreground); font-size: 11px; font-weight: 600; letter-spacing: .13em; text-transform: uppercase; }
 .lp-heading { max-width: 800px; margin-bottom: 44px; }
 .lp-heading h1 { margin: 0 0 14px; font: 400 clamp(32px,3.6vw,48px)/1.16 var(--lp-title-font); letter-spacing: -.025em; }
 .lp-heading > p:last-child:not(.lp-eyebrow) { margin: 0; color: var(--muted-foreground); font-size: 17px; }
+.lp-directory-tools { display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-bottom: 20px; }
+.lp-directory-tools h2 { margin: 0; font-size: 19px; font-weight: 600; }
+.lp-directory-tools h2 span { margin-left: 10px; color: var(--muted-foreground); font-size: 12px; font-variant-numeric: tabular-nums; }
+.lp-directory-tools p { margin: 4px 0 0; color: var(--muted-foreground); font-size: 14px; }
+.lp-search { position: relative; width: 280px; }
+.lp-search > svg { position: absolute; left: 12px; top: 13px; color: var(--muted-foreground); pointer-events: none; }
+.lp-search input { height: 44px; padding-left: 40px; background: var(--card); }
+.lp-app-list { border-top: 1px solid var(--border); }
+.lp-app-row { display: flex; align-items: center; gap: 24px; padding: 28px 0; border-bottom: 1px solid var(--border); }
+.lp-app-icon { display: flex; align-items: center; justify-content: center; width: 54px; height: 54px; flex-shrink: 0; border-radius: 8px; background: var(--secondary); color: var(--primary); }
+.lp-app-copy { flex: 1; }
+.lp-app-copy h3 { margin: 0 0 5px; font-size: 21px; font-weight: 600; }
+.lp-app-copy p { margin: 0; color: var(--muted-foreground); font-size: 15px; }
+.lp-app-row button { min-height: 44px; color: var(--primary); }
+.lp-access-note { display: flex; align-items: flex-start; gap: 14px; max-width: 660px; margin-top: 36px; color: var(--muted-foreground); font-size: 14px; }
+.lp-access-note svg { flex-shrink: 0; margin-top: 3px; }
+.lp-access-note p { margin: 0; }
+.lp-access-note strong { color: var(--foreground); font-weight: 600; }
+.lp-sheet-body { padding: 24px; overflow: auto; }
+.lp-sheet-body dt { margin-top: 24px; color: var(--muted-foreground); font-size: 13px; }
+.lp-sheet-body dd { margin: 4px 0; font-weight: 600; }
 .lp-status { display: flex; gap: 14px; padding: 22px; border: 1px solid var(--border); border-radius: 6px; background: var(--muted); margin: 20px 0; }
 .lp-status > svg { flex-shrink: 0; }
 .lp-status p { margin: 6px 0; max-width: 620px; font-size: 15px; }
@@ -42,10 +90,33 @@
 .lp-muted { color: var(--muted-foreground); font-size: 13px; }
 :focus-visible { outline: 2px solid var(--ring); outline-offset: 3px; }
 @media (max-width: 1000px) {
+  .lp-with-rail { grid-template-columns: 210px minmax(0,1fr); }
+  .lp-main { padding: 36px 24px 60px; }
+  .lp-topbar { padding: 20px 24px; }
+  .lp-app-row { gap: 16px; flex-wrap: wrap; }
+  .lp-app-copy { flex-basis: calc(100% - 80px); }
+  .lp-app-row > button { margin-left: auto; }
+  .lp-app-row > [data-slot="badge"] { margin-left: 70px; }
   .lp-auth-context { padding: 36px; }
   .lp-auth-form { padding: 40px 28px 24px; }
 }
 @media (max-width: 720px) {
+  .lp-topbar { padding: 18px 16px; }
+  .lp-account > span:not(.lp-avatar), .lp-account > svg { display: none; }
+  .lp-account { padding: 6px; }
+  .lp-mobile-menu { display: inline-flex; }
+  .lp-navigation { display: none; }
+  .lp-with-rail { display: block; }
+  .lp-main { padding: 32px 20px 56px; }
+  .lp-footer { flex-direction: column; gap: 6px; padding: 20px; }
+  .lp-directory-tools { align-items: flex-start; flex-direction: column; gap: 20px; }
+  .lp-search { width: 100%; }
+  .lp-app-row { gap: 12px; padding: 24px 0; }
+  .lp-app-copy h3 { font-size: 20px; }
+  .lp-app-icon { width: 42px; height: 42px; }
+  .lp-app-copy { flex-basis: calc(100% - 60px); }
+  .lp-app-row > [data-slot="badge"] { margin-left: 54px; }
+  .lp-app-row > button { padding-right: 0; }
   .lp-brand { gap: 10px; }
   .lp-brand img { width: 40px; height: 40px; }
   .lp-brand strong { font-size: 18px; }

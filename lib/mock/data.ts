@@ -142,7 +142,7 @@ export const mockApplications: Application[] = [
   },
   {
     uuid: "app-005-sso-admin",
-    name: "SSO Admin Portal",
+    name: "Admin App Management System",
     description: "Administration dashboard for managing SSO users and applications",
     client_id: "sso-admin-client-m3n4o5",
     redirect_uris: ["http://localhost:3000/callback"],
@@ -200,7 +200,7 @@ export const mockEmployees: Employee[] = [
     created_at: "2023-01-15T08:30:00+00:00",
     updated_at: "2024-06-20T14:45:00+00:00",
     applications: [
-      { uuid: "app-005-sso-admin", name: "SSO Admin Portal", role: "super_administrator" },
+      { uuid: "app-005-sso-admin", name: "Admin App Management System", role: "super_administrator" },
       { uuid: "app-001-hrms", name: "HR Management System", role: "administrator" },
     ],
   },
@@ -406,7 +406,7 @@ export const mockEmployees: Employee[] = [
     created_at: "2023-04-01T09:00:00+00:00",
     updated_at: "2024-08-01T14:00:00+00:00",
     applications: [
-      { uuid: "app-005-sso-admin", name: "SSO Admin Portal", role: "super_administrator" },
+      { uuid: "app-005-sso-admin", name: "Admin App Management System", role: "super_administrator" },
       { uuid: "app-001-hrms", name: "HR Management System", role: "administrator" },
       { uuid: "app-002-dts", name: "Document Tracking System", role: "administrator" },
       { uuid: "app-003-permits", name: "Business Permits Portal", role: "administrator" },
@@ -604,7 +604,7 @@ export const mockCurrentUser: AuthUser = {
   date_employed: "2018-06-01",
   date_terminated: null,
   applications: [
-    { uuid: "app-005-sso-admin", name: "SSO Admin Portal", role: "super_administrator" as const },
+    { uuid: "app-005-sso-admin", name: "Admin App Management System", role: "super_administrator" as const },
     { uuid: "app-001-hrms", name: "HR Management System", role: "administrator" as const },
   ],
 };

@@ -1,89 +1,83 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { AppWindow, ArrowRight, Search, ShieldCheck } from "lucide-react";
 import { portalApi } from "@/lib/api";
+import { useAuth } from "@/hooks/use-auth";
 import type { EmployeeApplication } from "@/types/employee";
-import type { Role } from "@/types/employee";
+import { PortalHeading, PortalStatus } from "@/components/portal/design";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Skeleton } from "@/components/ui/skeleton";
 
-const roleBadgeStyles: Record<Role, string> = {
-  guest: "bg-blue-500/15 text-blue-400",
-  standard: "bg-green-500/15 text-green-400",
-  administrator: "bg-amber-500/15 text-amber-400",
-  super_administrator: "bg-purple-500/15 text-purple-400",
-};
+const roleLabel = (role: EmployeeApplication["role"]) => role.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 
 export default function PortalApplicationsPage() {
   const [applications, setApplications] = useState<EmployeeApplication[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [query, setQuery] = useState("");
+  const [selected, setSelected] = useState<EmployeeApplication | null>(null);
+  const { user } = useAuth();
 
-  useEffect(() => {
-    const loadApplications = async () => {
-      try {
-        const data = await portalApi.getApplications();
-        setApplications(data);
-      } catch {
-        setApplications([]);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    loadApplications();
+  const loadApplications = useCallback(async () => {
+    setIsLoading(true);
+    setError("");
+    try {
+      setApplications(await portalApi.getApplications());
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "We couldn’t load your applications.");
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
+  useEffect(() => { void loadApplications(); }, [loadApplications]);
 
-  return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">My Applications</h1>
-        <p className="text-muted-foreground">
-          Applications you have access to
-        </p>
+  const filtered = useMemo(() => applications.filter((app) => `${app.name} ${app.role}`.toLowerCase().includes(query.trim().toLowerCase())), [applications, query]);
+
+  return <>
+    <PortalHeading eyebrow="Employee workspace" title="Your work starts here.">Find the applications available to your account.</PortalHeading>
+    {isLoading ? (
+      <div role="status" aria-label="Loading your applications" className="space-y-4">
+        <Skeleton className="h-10 w-48" />
+        {[1, 2, 3].map((item) => <Skeleton key={item} className="h-28 w-full" />)}
       </div>
-
-      {isLoading ? (
-        <div className="space-y-3">
-          {[1, 2, 3].map((i) => (
-            <div
-              key={i}
-              className="bg-card border rounded-lg p-4 animate-pulse"
-            >
-              <div className="flex items-center justify-between">
-                <div className="space-y-2">
-                  <div className="h-4 w-40 bg-muted rounded" />
-                  <div className="h-3 w-64 bg-muted rounded" />
-                </div>
-                <div className="h-6 w-24 bg-muted rounded-full" />
-              </div>
-            </div>
-          ))}
+    ) : error ? (
+      <PortalStatus kind="error" title="We couldn’t load your applications." action={<Button variant="outline" onClick={() => void loadApplications()}>Try again</Button>}>
+        Your permissions have not changed. {error}
+      </PortalStatus>
+    ) : <>
+      <div className="lp-directory-tools">
+        <div><h2>My applications <span>{String(applications.length).padStart(2, "0")}</span></h2><p>Access assigned by your administrator</p></div>
+        <div className="lp-search"><Search size={18} aria-hidden="true" /><Input aria-label="Find an application" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Find an application" /></div>
+      </div>
+      {filtered.length ? (
+        <div className="lp-app-list">
+          {filtered.map((app) => <article className="lp-app-row" key={app.uuid}>
+            <span className="lp-app-icon"><AppWindow size={24} aria-hidden="true" /></span>
+            <div className="lp-app-copy"><h3>{app.name}</h3><p>Available to your LGU account</p></div>
+            <Badge variant="secondary">{roleLabel(app.role)}</Badge>
+            <Button variant="ghost" onClick={() => setSelected(app)}>View access <ArrowRight size={17} /></Button>
+          </article>)}
         </div>
-      ) : applications.length === 0 ? (
-        <p className="text-center text-muted-foreground py-12">
-          You don&apos;t have access to any applications yet.
-        </p>
       ) : (
-        <div className="space-y-3">
-          {applications.map((app) => (
-            <div
-              key={app.uuid}
-              className="bg-card border rounded-lg p-4 flex items-center justify-between"
-            >
-              <div>
-                <p className="font-medium">{app.name}</p>
-                <p className="text-sm text-muted-foreground">
-                  {(app as EmployeeApplication & { description?: string })
-                    ?.description || ""}
-                </p>
-              </div>
-              <span
-                className={`text-xs uppercase tracking-wide px-3 py-1 rounded-full ${roleBadgeStyles[app.role]}`}
-              >
-                {app.role.replace("_", " ")}
-              </span>
-            </div>
-          ))}
-        </div>
+        <PortalStatus kind="empty" title={query ? "No applications match your search." : "No applications assigned yet."} action={query ? <Button variant="outline" onClick={() => setQuery("")}>Clear search</Button> : undefined}>
+          {query ? "Try a different application name." : "Your administrator can assign the tools you need for your work."}
+        </PortalStatus>
       )}
-    </div>
-  );
+      <div className="lp-access-note"><ShieldCheck size={20} aria-hidden="true" /><p><strong>One identity across your applications.</strong><br />Your assigned role controls what you can access. Contact your administrator if something is missing.</p></div>
+    </>}
+    <Sheet open={!!selected} onOpenChange={(open) => !open && setSelected(null)}>
+      <SheetContent>
+        <SheetHeader><SheetTitle>{selected?.name}</SheetTitle><SheetDescription>Application access details</SheetDescription></SheetHeader>
+        <div className="lp-sheet-body">
+          <Badge>Access assigned</Badge>
+          <dl><dt>Your role</dt><dd>{selected && roleLabel(selected.role)}</dd><dt>Account</dt><dd>{user?.username || "Your LGU account"}</dd></dl>
+          <PortalStatus title="Use your LGU account to sign in.">Open this application using the address provided by your office.</PortalStatus>
+        </div>
+      </SheetContent>
+    </Sheet>
+  </>;
 }
