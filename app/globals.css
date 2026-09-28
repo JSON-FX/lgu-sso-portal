@@ -1,13 +1,14 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+@import "./portal-design.css";
 
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: 'Plus Jakarta Sans', system-ui, sans-serif;
-  --font-mono: 'JetBrains Mono', monospace;
+  --font-sans: "Source Sans 3", sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, monospace;
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -51,114 +52,72 @@
 }
 
 :root {
-  --radius: 0.5rem;
-
-  /* Institutional Modernism - Light Theme */
-  /* Deep slate base with warm amber accents */
-  --background: oklch(0.98 0.002 247);
-  --foreground: oklch(0.18 0.02 255);
-
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.18 0.02 255);
-
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.18 0.02 255);
-
-  /* Primary: Deep Navy Blue - authoritative, government-like */
-  --primary: oklch(0.35 0.08 255);
-  --primary-foreground: oklch(0.98 0.002 247);
-
-  /* Secondary: Slate gray - professional, neutral */
-  --secondary: oklch(0.95 0.005 255);
-  --secondary-foreground: oklch(0.25 0.02 255);
-
-  --muted: oklch(0.96 0.004 255);
-  --muted-foreground: oklch(0.45 0.02 255);
-
-  /* Accent: Warm Amber/Gold - for CTAs, success states */
-  --accent: oklch(0.82 0.14 75);
-  --accent-foreground: oklch(0.25 0.05 60);
-
-  /* Warning: Amber */
-  --warning: oklch(0.85 0.16 85);
-  --warning-foreground: oklch(0.3 0.08 60);
-
-  /* Success: Teal */
-  --success: oklch(0.72 0.14 175);
-  --success-foreground: oklch(0.98 0 0);
-
-  --destructive: oklch(0.6 0.2 25);
-
-  --border: oklch(0.91 0.005 255);
-  --input: oklch(0.93 0.005 255);
-  --ring: oklch(0.45 0.08 255);
-
-  /* Chart colors - government-appropriate palette */
-  --chart-1: oklch(0.45 0.12 255);
-  --chart-2: oklch(0.65 0.14 175);
-  --chart-3: oklch(0.75 0.14 75);
-  --chart-4: oklch(0.55 0.12 310);
-  --chart-5: oklch(0.6 0.08 30);
-
-  /* Sidebar: Darker, more prominent */
-  --sidebar: oklch(0.22 0.03 255);
-  --sidebar-foreground: oklch(0.92 0.01 255);
-  --sidebar-primary: oklch(0.82 0.14 75);
-  --sidebar-primary-foreground: oklch(0.22 0.05 60);
-  --sidebar-accent: oklch(0.28 0.03 255);
-  --sidebar-accent-foreground: oklch(0.95 0.005 255);
-  --sidebar-border: oklch(0.32 0.03 255);
-  --sidebar-ring: oklch(0.55 0.08 255);
+  --radius: 0.4rem;
+  --background: #f8f7f2;
+  --foreground: #202d29;
+  --card: #fffefa;
+  --card-foreground: #202d29;
+  --popover: #fffefa;
+  --popover-foreground: #202d29;
+  --primary: #244c45;
+  --primary-foreground: #fff;
+  --secondary: #eaece5;
+  --secondary-foreground: #253d34;
+  --muted: #efeee8;
+  --muted-foreground: #58635d;
+  --accent: #e5ebe2;
+  --accent-foreground: #244c45;
+  --destructive: #b32930;
+  --border: #d5d9ce;
+  --input: #abb5aa;
+  --ring: #527e64;
+  --warning: #a36737;
+  --warning-foreground: #fff;
+  --success: #244c45;
+  --success-foreground: #fff;
+  --chart-1: #244c45;
+  --chart-2: #a36737;
+  --chart-3: #537a8a;
+  --chart-4: #868449;
+  --chart-5: #8a5978;
+  --sidebar: #efeee8;
+  --sidebar-foreground: #263930;
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: #fff;
+  --sidebar-accent: var(--accent);
+  --sidebar-accent-foreground: var(--accent-foreground);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--ring);
+  --lp-title-font: "Source Serif 4", Georgia, serif;
 }
 
 .dark {
-  --background: oklch(0.14 0.015 255);
-  --foreground: oklch(0.95 0.005 255);
-
-  --card: oklch(0.18 0.02 255);
-  --card-foreground: oklch(0.95 0.005 255);
-
-  --popover: oklch(0.18 0.02 255);
-  --popover-foreground: oklch(0.95 0.005 255);
-
-  --primary: oklch(0.75 0.12 75);
-  --primary-foreground: oklch(0.18 0.03 60);
-
-  --secondary: oklch(0.22 0.02 255);
-  --secondary-foreground: oklch(0.92 0.005 255);
-
-  --muted: oklch(0.22 0.015 255);
-  --muted-foreground: oklch(0.65 0.01 255);
-
-  --accent: oklch(0.28 0.025 255);
-  --accent-foreground: oklch(0.92 0.005 255);
-
-  --warning: oklch(0.78 0.14 75);
-  --warning-foreground: oklch(0.2 0.05 60);
-
-  --success: oklch(0.68 0.14 175);
-  --success-foreground: oklch(0.15 0 0);
-
-  --destructive: oklch(0.65 0.22 25);
-
-  --border: oklch(0.28 0.02 255);
-  --input: oklch(0.25 0.02 255);
-  --ring: oklch(0.55 0.1 75);
-
-  --chart-1: oklch(0.65 0.14 255);
-  --chart-2: oklch(0.7 0.14 175);
-  --chart-3: oklch(0.78 0.14 75);
-  --chart-4: oklch(0.65 0.14 310);
-  --chart-5: oklch(0.7 0.1 30);
-
-  --sidebar: oklch(0.12 0.015 255);
-  --sidebar-foreground: oklch(0.92 0.01 255);
-  --sidebar-primary: oklch(0.78 0.14 75);
-  --sidebar-primary-foreground: oklch(0.18 0.05 60);
-  --sidebar-accent: oklch(0.18 0.02 255);
-  --sidebar-accent-foreground: oklch(0.95 0.005 255);
-  --sidebar-border: oklch(0.25 0.02 255);
-  --sidebar-ring: oklch(0.55 0.08 255);
+  --background: #18231f;
+  --foreground: #edf1e9;
+  --card: #202c26;
+  --card-foreground: #edf1e9;
+  --popover: #202c26;
+  --popover-foreground: #edf1e9;
+  --primary: #b3d4bd;
+  --primary-foreground: #193126;
+  --secondary: #34443a;
+  --secondary-foreground: #edf1e9;
+  --muted: #27352d;
+  --muted-foreground: #b6c3b8;
+  --accent: #344b3e;
+  --accent-foreground: #e9f3eb;
+  --destructive: #ff9fa0;
+  --border: #435449;
+  --input: #6c8171;
+  --ring: #b3d4bd;
+  --sidebar: #202c26;
+  --sidebar-foreground: #edf1e9;
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-accent: var(--accent);
+  --sidebar-accent-foreground: var(--accent-foreground);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--ring);
 }
 
 @layer base {
@@ -167,7 +126,7 @@
   }
   body {
     @apply bg-background text-foreground antialiased;
-    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+    font-family: "Source Sans 3", sans-serif;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
 
