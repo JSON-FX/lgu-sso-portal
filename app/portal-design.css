@@ -101,6 +101,9 @@
 .lp-form-grid .lp-field > p { margin: 0; padding: 4px 0; overflow-wrap: anywhere; }
 .lp-form-actions { display: flex; justify-content: flex-end; gap: 12px; margin-top: 32px; }
 .lp-form-actions button { min-height: 44px; }
+.lp-password-form { display: flex; flex-direction: column; gap: 24px; max-width: 450px; }
+.lp-password-form > button { align-self: flex-start; min-height: 44px; }
+.lp-password-form > .lp-muted { margin: -14px 0 0; }
 :focus-visible { outline: 2px solid var(--ring); outline-offset: 3px; }
 @media (max-width: 1000px) {
   .lp-with-rail { grid-template-columns: 210px minmax(0,1fr); }
