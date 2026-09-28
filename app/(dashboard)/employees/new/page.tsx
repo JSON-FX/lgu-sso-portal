@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -37,6 +38,7 @@ import { toast } from "sonner";
 export default function NewEmployeePage() {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [createdAccount, setCreatedAccount] = useState<{ uuid: string; username: string; initialPassword: string } | null>(null);
   const [regions, setRegions] = useState<PSGCRegion[]>([]);
   const [provinces, setProvinces] = useState<PSGCProvince[]>([]);
   const [municipalities, setMunicipalities] = useState<PSGCMunicipality[]>([]);
@@ -212,7 +214,11 @@ export default function NewEmployeePage() {
       };
       const response = await api.employees.create(sanitizedData as CreateEmployeeData);
       toast.success("Employee created successfully");
-      router.push(`/employees/${response.data.uuid}`);
+      if ("initial_password" in response && typeof response.initial_password === "string") {
+        setCreatedAccount({ uuid: response.data.uuid, username: response.data.username, initialPassword: response.initial_password });
+      } else {
+        router.push(`/employees/${response.data.uuid}`);
+      }
     } catch (error) {
       if (error instanceof Error) {
         toast.error(error.message);
@@ -226,6 +232,23 @@ export default function NewEmployeePage() {
 
   return (
     <div className="space-y-6">
+      <Dialog open={createdAccount !== null} onOpenChange={(open) => {
+        if (!open && createdAccount) router.push(`/employees/${createdAccount.uuid}`);
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Employee account created</DialogTitle>
+            <DialogDescription>Copy these one-time credentials now. The password will not be shown again.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 break-all">
+            <p>Username: <strong>{createdAccount?.username}</strong></p>
+            <p>Temporary password: <strong>{createdAccount?.initialPassword}</strong></p>
+          </div>
+          <DialogFooter>
+            <Button onClick={() => createdAccount && router.push(`/employees/${createdAccount.uuid}`)}>Done</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       {/* Header */}
       <div className="flex items-center gap-4">
         <Button variant="ghost" size="icon" asChild>

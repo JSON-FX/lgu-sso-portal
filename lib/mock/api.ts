@@ -113,7 +113,7 @@ export const mockAuthApi = {
     // Generate username: first_initial.last_name lowercased, remove spaces from last name
     const firstInitial = first_name[0].toLowerCase();
     const normalizedLastName = last_name.toLowerCase().replace(/\s+/g, "");
-    let baseUsername = `${firstInitial}.${normalizedLastName}`;
+    const baseUsername = `${firstInitial}.${normalizedLastName}`;
     let username = baseUsername;
 
     // Check for collision, append number if needed
@@ -847,6 +847,11 @@ export const mockSsoApi = {
   async sessionCheck(): Promise<{ authenticated: boolean; token?: string }> {
     await delay(200);
     return { authenticated: false };
+  },
+
+  async issueCode(): Promise<{ code: string; expires_in: number }> {
+    await delay(200);
+    return { code: `mock-code-${Date.now()}`, expires_in: 60 };
   },
 };
 

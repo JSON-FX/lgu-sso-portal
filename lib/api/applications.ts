@@ -26,7 +26,8 @@ export const applicationApi = {
   },
 
   async create(data: CreateApplicationData): Promise<{ data: ApplicationWithSecret }> {
-    return apiClient.post<{ data: ApplicationWithSecret }>("/applications", data);
+    const response = await apiClient.post<{ data: Application; client_secret: string }>("/applications", data);
+    return { data: { ...response.data, client_secret: response.client_secret } };
   },
 
   async update(uuid: string, data: UpdateApplicationData): Promise<SingleResponse<Application>> {
@@ -38,9 +39,10 @@ export const applicationApi = {
   },
 
   async regenerateSecret(uuid: string): Promise<{ data: { client_secret: string } }> {
-    return apiClient.post<{ data: { client_secret: string } }>(
+    const response = await apiClient.post<{ client_secret: string }>(
       `/applications/${uuid}/regenerate-secret`
     );
+    return { data: { client_secret: response.client_secret } };
   },
 
   async getEmployees(uuid: string): Promise<{ data: ApplicationEmployee[] }> {

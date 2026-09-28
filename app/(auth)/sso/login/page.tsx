@@ -2,7 +2,6 @@
 
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,7 +15,7 @@ import {
 import { User, Lock, Loader2, AlertCircle } from "lucide-react";
 
 import { toast } from "sonner";
-import { api, ssoApi } from "@/lib/api";
+import { ssoApi } from "@/lib/api";
 import { useAuth } from "@/hooks/use-auth";
 
 type ValidationState =
@@ -41,6 +40,14 @@ function SSOLoginContent() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [loginError, setLoginError] = useState("");
 
+  const redirectWithCode = useCallback(async () => {
+    const { code } = await ssoApi.issueCode({ client_id: clientId!, redirect_uri: redirectUri! });
+    const destination = new URL(redirectUri!);
+    destination.searchParams.set("code", code);
+    destination.searchParams.set("state", state!);
+    window.location.assign(destination.toString());
+  }, [clientId, redirectUri, state]);
+
   const validateRedirect = useCallback(async () => {
     if (!redirectUri || !clientId || !state) {
       setValidation({ status: "missing-params" });
@@ -53,24 +60,20 @@ function SSOLoginContent() {
         redirect_uri: redirectUri,
       });
 
-      const applicationName =
-        data.application?.name || "the application";
+      const applicationName = "application_name" in data
+        ? data.application_name
+        : data.application?.name || "the application";
 
       setValidation({ status: "checking-session", applicationName });
 
-      // Check for existing SSO session cookie
-      try {
-        const sessionData = await ssoApi.sessionCheck();
-
-        if (sessionData.authenticated && sessionData.token) {
-          toast.success("Session found. Redirecting...");
-          const separator = redirectUri!.includes("?") ? "&" : "?";
-          const destination = `${redirectUri}${separator}token=${encodeURIComponent(sessionData.token)}&state=${encodeURIComponent(state!)}`;
-          window.location.href = destination;
+      const sessionData = await ssoApi.sessionCheck();
+      if (sessionData.authenticated) {
+        if ("must_change_password" in sessionData && sessionData.must_change_password) {
+          window.location.assign(`/setup-account?${new URLSearchParams({ client_id: clientId, redirect_uri: redirectUri, state })}`);
           return;
         }
-      } catch {
-        // Session check failed — fall through to show login form
+        await redirectWithCode();
+        return;
       }
 
       setValidation({ status: "validated", applicationName });
@@ -84,7 +87,7 @@ function SSOLoginContent() {
         message,
       });
     }
-  }, [redirectUri, clientId, state]);
+  }, [redirectUri, clientId, state, redirectWithCode]);
 
   useEffect(() => {
     validateRedirect();
@@ -98,12 +101,7 @@ function SSOLoginContent() {
     try {
       // Use useAuth login to populate Zustand store (needed for setup-account)
       await authLogin(username, password);
-      const { mustChangePassword, token } = useAuth.getState();
-
-      if (!token) {
-        setLoginError("Authentication succeeded but no token was returned.");
-        return;
-      }
+      const { mustChangePassword } = useAuth.getState();
 
       // Check if user must change password before proceeding
       if (mustChangePassword) {
@@ -113,9 +111,7 @@ function SSOLoginContent() {
 
       toast.success("Authentication successful. Redirecting...");
 
-      const separator = redirectUri!.includes("?") ? "&" : "?";
-      const destination = `${redirectUri}${separator}token=${encodeURIComponent(token)}&state=${encodeURIComponent(state!)}`;
-      window.location.href = destination;
+      await redirectWithCode();
     } catch (err) {
       const message =
         err instanceof Error && err.message
@@ -316,10 +312,7 @@ function SSOLoginContent() {
                 </div>
 
                 <p className="text-sm text-muted-foreground text-center mt-4">
-                  Don&apos;t have an account?{" "}
-                  <Link href={`/register?redirect_sso=true&client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri!)}&state=${state}`} className="text-primary hover:underline">
-                    Register here
-                  </Link>
+                  Contact your SSO administrator to request an account.
                 </p>
               </CardContent>
             </Card>

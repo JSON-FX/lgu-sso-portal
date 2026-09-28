@@ -57,7 +57,7 @@ export { portalApi as realPortalApi } from "./portal";
 export { ssoApi as realSsoApi } from "./sso";
 
 // Export client utilities
-export { ApiError, setAuthToken, removeAuthToken, hasAuthToken } from "./client";
+export { ApiError } from "./client";
 
 // Export a helper to check which API mode is active
 export const isUsingMockApi = () => USE_MOCK_API;

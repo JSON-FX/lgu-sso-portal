@@ -1,46 +1,58 @@
-# LGU-SSO UI
+# lgu-sso-portal
 
-User-facing Single Sign-On login portal for the LGU platform. Users are redirected here by sibling apps (opts2026, lgu-chat) to authenticate; after sign-in the portal redirects back to the originating app with an access token.
+Next.js login and administration portal for LGU single sign-on (SSO). The backend owns identity, application grants, and shared roles. Consumer applications own their detailed business permissions.
 
-Built with [Next.js](https://nextjs.org) 15 + TypeScript. The portal calls the LGU-SSO backend API for credential validation and token issuance.
+## Local stack
 
-<!-- lgu-ecosystem:start -->
-## LGU Ecosystem
+Run from the `lgu-dev` workspace root. Existing Traefik, MySQL, `dev-net`, local DNS, and trusted HTTPS certificates are required.
 
-This project is one of four applications that make up the LGU platform, all running inside the shared Docker container **development**:
+| Service | URL |
+| --- | --- |
+| Backend API | https://sso.lgu.lan |
+| Portal | https://sso-portal.lgu.lan |
 
-| Project     | Role                       | Dev URL                                 | Prod URL                                            |
-|-------------|----------------------------|-----------------------------------------|-----------------------------------------------------|
-| LGU-SSO     | Authentication API         | http://api.sso.local                    | https://api.sso.lguquezon.local                     |
-| lgu-sso-ui  | SSO login portal           | http://sso-portal.local                 | https://sso-portal.lguquezon.local                  |
-| lgu-chat    | Real-time messaging        | http://chat.local                       | https://chat.lguquezon.local                        |
-| opts2026    | Procurement tracking       | http://opts.local                       | https://opts.lguquezon.local                        |
-
-Authentication works in two hops: apps redirect users to the **login portal** (`sso-portal.*`), and then talk to the **SSO API** (`api.sso.*`) server-to-server to validate tokens and fetch the user profile. The legacy names `sso-ui.*`, `lgu-sso.test`, and `lgu-sso.local` are being phased out — always use `sso-portal.*` and `api.sso.*`.
-
-Dev and production configurations must be identical except for DNS hostnames, secrets, and `APP_ENV`/`NODE_ENV`/`APP_DEBUG`. See the workspace-level [`../CLAUDE.md`](../CLAUDE.md) for the full ecosystem overview, authentication model, and the list of known cross-app issues.
-<!-- lgu-ecosystem:end -->
-
-## Getting Started
-
-Install dependencies and run the dev server:
-
-```bash
-npm install
-npm run dev
+```sh
+docker compose build lgu-sso lgu-sso-ui
+docker compose up -d --no-build lgu-sso lgu-sso-ui
+docker compose ps
 ```
 
-Open [http://localhost:3000](http://localhost:3000) (or [http://sso-portal.local](http://sso-portal.local) inside the `development` Docker container) to view the portal.
+OPTS and Chat are retired from this stack and their local SSO registrations are disabled. Their source folders and data remain available for rebuilding.
 
-### Environment
+## Authentication contract
 
-Copy `.env.local.example` → `.env.local` and fill in the SSO API URL and client credentials. See the [Integration Guide](LGU-SSO-INTEGRATION-GUIDE.md) for what each variable is for.
+Browser requests use the same-origin `/api/sso-backend/*` server route. It stores the central bearer in a host-only, Secure, HttpOnly `__Host-portal_session` cookie in production builds. Development uses `portal_session`. The server never returns the bearer to browser JavaScript or forwards it to consumers. Unsafe requests must match `SSO_PORTAL_ORIGIN`.
 
-## SSO Integration Guide
+A consumer redirects to `/sso/login` with its client ID, exact registered callback, and unpredictable state. Its server exchanges the returned one-time code using its own client credentials. Codes expire after 60 seconds. Tokens are bound to that application and cannot access portal/admin APIs or acquire central authority through refresh.
 
-For full documentation on integrating a new app with LGU-SSO (register client, implement callback, validate tokens), see [`LGU-SSO-INTEGRATION-GUIDE.md`](LGU-SSO-INTEGRATION-GUIDE.md).
+Consumers must validate current authorization for each protected request and deny access when SSO cannot be reached. Normal sign out revokes the current session only. The portal separately offers **Sign out everywhere**, which revokes all central and application sessions and outstanding codes.
 
-## Learn More about Next.js
+See [LGU-SSO-INTEGRATION-GUIDE.md](LGU-SSO-INTEGRATION-GUIDE.md) for the complete API contract and consumer acceptance checks.
 
-- [Next.js Documentation](https://nextjs.org/docs) — Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) — interactive tutorial.
+## Configuration and migration
+
+Copy `.env.local.example` for development outside Docker, then run `npm ci` and `npm run dev`. Set the exact browser origin in `SSO_PORTAL_ORIGIN` and a server-reachable `SSO_API_URL`. Enable `SSO_TRUST_PROXY_HEADERS` only behind a trusted ingress that overwrites forwarded headers.
+
+Docker uses `SSO_API_URL=http://lgu-sso:8000/api/v1` locally and `http://sso-web:8080/api/v1` in production. Mock API mode is disabled. Cookies never use a shared parent domain. `SSO_LEGACY_COOKIE_DOMAIN` only expires cookies left by earlier releases. The backend migration revokes legacy tokens once; existing users must sign in again.
+
+## Production
+
+Use the separate workspace `docker-compose.prod.yml`. Follow the [backend production runbook](../lgu-sso-backend/README.md#production-docker-stack) for secrets, TLS, administrator bootstrap, backups, and rollback. Supply trusted API/portal hostnames and the exact allowed portal origin. Never reuse local certificates or secrets.
+
+```sh
+production_env=/secure/path/sso-production.env
+docker compose --env-file "$production_env" -f docker-compose.prod.yml config --quiet
+docker compose --env-file "$production_env" -f docker-compose.prod.yml build
+docker compose --env-file "$production_env" -f docker-compose.prod.yml up -d --no-build
+```
+
+Verify login, required password setup, grants, code exchange/replay, token isolation, backend outage behavior, and both logout options before admitting consumers. This local implementation does not constitute production deployment acceptance.
+
+## Checks
+
+```sh
+npm test
+npx tsc --noEmit
+npm run lint
+npm run build
+```

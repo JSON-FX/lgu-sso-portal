@@ -20,14 +20,14 @@ interface HeaderProps {
 }
 
 export function Header({ showNotifications = true }: HeaderProps) {
-  const { user, logout } = useAuth();
+  const { user, logout, isSuperAdmin } = useAuth();
   const router = useRouter();
 
-  const handleLogout = async () => {
+  const handleLogout = async (everywhere = false) => {
     try {
-      await logout();
+      await logout(everywhere);
       router.push("/login");
-      toast.success("Logged out successfully");
+      toast.success(everywhere ? "Signed out everywhere" : "Signed out successfully");
     } catch {
       toast.error("Failed to logout");
     }
@@ -75,7 +75,7 @@ export function Header({ showNotifications = true }: HeaderProps) {
                   {user?.full_name || "Administrator"}
                 </span>
                 <span className="text-xs text-muted-foreground">
-                  Super Admin
+                  {isSuperAdmin ? "Super Admin" : "Employee"}
                 </span>
               </div>
               <ChevronDown className="h-4 w-4 text-muted-foreground" />
@@ -100,10 +100,14 @@ export function Header({ showNotifications = true }: HeaderProps) {
             <DropdownMenuSeparator />
             <DropdownMenuItem
               className="cursor-pointer text-destructive focus:text-destructive"
-              onClick={handleLogout}
+              onClick={() => handleLogout()}
             >
               <LogOut className="mr-2 h-4 w-4" />
-              <span>Log out</span>
+              <span>Sign out</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem className="cursor-pointer text-destructive focus:text-destructive" onClick={() => handleLogout(true)}>
+              <LogOut className="mr-2 h-4 w-4" />
+              <span>Sign out everywhere</span>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

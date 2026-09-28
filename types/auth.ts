@@ -22,7 +22,7 @@ export interface ChangePasswordData {
 }
 
 export interface LoginResponse {
-  access_token: string;
+  access_token?: string;
   token_type: string;
   employee: Employee;
 }

@@ -114,6 +114,8 @@ function WelcomeStep({
 }
 
 function PasswordStep({
+  currentPassword,
+  setCurrentPassword,
   newPassword,
   setNewPassword,
   confirmPassword,
@@ -121,6 +123,8 @@ function PasswordStep({
   isSubmitting,
   onSubmit,
 }: {
+  currentPassword: string;
+  setCurrentPassword: (value: string) => void;
   newPassword: string;
   setNewPassword: (value: string) => void;
   confirmPassword: string;
@@ -142,6 +146,7 @@ function PasswordStep({
   );
 
   const allValid =
+    currentPassword.length > 0 &&
     validations.minLength &&
     validations.hasNumber &&
     validations.passwordsMatch;
@@ -159,6 +164,17 @@ function PasswordStep({
         </div>
 
         <div className="space-y-4">
+          <div className="space-y-2">
+            <label htmlFor="current-password" className="text-sm font-medium text-foreground">Temporary Password</label>
+            <Input
+              id="current-password"
+              type="password"
+              autoComplete="current-password"
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+              disabled={isSubmitting}
+            />
+          </div>
           <div className="space-y-2">
             <label
               htmlFor="new-password"
@@ -319,12 +335,13 @@ function DoneStep({ onContinue }: { onContinue: () => void }) {
 
 function SetupAccountContent() {
   const [currentStep, setCurrentStep] = useState(1);
+  const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [fadeKey, setFadeKey] = useState(0);
 
-  const { user, sessionPassword, changePassword, isSuperAdmin } =
+  const { user, changePassword, isSuperAdmin } =
     useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -335,22 +352,10 @@ function SetupAccountContent() {
   }, []);
 
   const handleSetPassword = useCallback(async () => {
-    if (!sessionPassword) {
-      toast.error("Session expired. Please log in again.");
-      const clientId = searchParams.get("client_id");
-      const redirectUri = searchParams.get("redirect_uri");
-      const state = searchParams.get("state");
-      if (clientId && redirectUri && state) {
-        window.location.href = `/sso/login?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${encodeURIComponent(state)}`;
-      } else {
-        router.push("/login");
-      }
-      return;
-    }
-
     setIsSubmitting(true);
     try {
-      await changePassword(sessionPassword, newPassword);
+      await changePassword(currentPassword, newPassword);
+      setCurrentPassword("");
 
       // For SSO flows, redirect back to SSO login immediately
       // (the layout would redirect before step 3 renders anyway)
@@ -372,7 +377,7 @@ function SetupAccountContent() {
     } finally {
       setIsSubmitting(false);
     }
-  }, [sessionPassword, newPassword, changePassword, goToStep, router, searchParams]);
+  }, [currentPassword, newPassword, changePassword, goToStep, searchParams]);
 
   const handleDoneContinue = useCallback(() => {
     const clientId = searchParams.get("client_id");
@@ -408,6 +413,8 @@ function SetupAccountContent() {
         )}
         {currentStep === 2 && (
           <PasswordStep
+            currentPassword={currentPassword}
+            setCurrentPassword={setCurrentPassword}
             newPassword={newPassword}
             setNewPassword={setNewPassword}
             confirmPassword={confirmPassword}

@@ -34,8 +34,8 @@ export const employeeApi = {
     return apiClient.get<SingleResponse<Employee>>(`/employees/${uuid}`);
   },
 
-  async create(data: CreateEmployeeData): Promise<SingleResponse<Employee>> {
-    return apiClient.post<SingleResponse<Employee>>("/employees", data);
+  async create(data: CreateEmployeeData): Promise<SingleResponse<Employee> & { initial_password: string }> {
+    return apiClient.post<SingleResponse<Employee> & { initial_password: string }>("/employees", data);
   },
 
   async update(uuid: string, data: UpdateEmployeeData): Promise<SingleResponse<Employee>> {

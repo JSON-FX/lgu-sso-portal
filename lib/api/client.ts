@@ -4,10 +4,9 @@
  * Base HTTP client for making API requests to the LGU-SSO backend.
  */
 
-import Cookies from "js-cookie";
 import { ErrorResponse } from "@/types";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://lgu-sso.test/api/v1";
+const API_BASE_URL = "/api/sso-backend";
 
 export class ApiError extends Error {
   status: number;
@@ -19,26 +18,6 @@ export class ApiError extends Error {
     this.status = status;
     this.errors = errors;
   }
-}
-
-function getAuthToken(): string | undefined {
-  return Cookies.get("auth_token");
-}
-
-export function setAuthToken(token: string): void {
-  Cookies.set("auth_token", token, {
-    expires: 30, // 30 days
-    sameSite: "lax",
-    secure: process.env.NEXT_PUBLIC_SECURE_COOKIES === "true",
-  });
-}
-
-export function removeAuthToken(): void {
-  Cookies.remove("auth_token");
-}
-
-export function hasAuthToken(): boolean {
-  return !!getAuthToken();
 }
 
 interface FetchOptions extends RequestInit {
@@ -70,13 +49,9 @@ async function fetchApi<T>(endpoint: string, options: FetchOptions = {}): Promis
     ...options.headers,
   };
 
-  const token = getAuthToken();
-  if (token) {
-    (headers as Record<string, string>)["Authorization"] = `Bearer ${token}`;
-  }
-
   const response = await fetch(url, {
     ...fetchOptions,
+    credentials: "same-origin",
     headers,
   });
 

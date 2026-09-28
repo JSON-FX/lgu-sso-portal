@@ -117,7 +117,7 @@ export default function DashboardPage() {
               <Skeleton className="h-8 w-20" />
             ) : (
               <>
-                <div className="text-3xl font-bold">{stats?.totalEmployees}</div>
+                <div className="text-3xl font-bold">{stats?.totalEmployees ?? "—"}</div>
                 <p className="text-xs text-muted-foreground">
                   <span className="text-green-600 font-medium">
                     {stats?.activeEmployees} active
@@ -146,7 +146,7 @@ export default function DashboardPage() {
               <Skeleton className="h-8 w-20" />
             ) : (
               <>
-                <div className="text-3xl font-bold">{stats?.totalApplications}</div>
+                <div className="text-3xl font-bold">{stats?.totalApplications ?? "—"}</div>
                 <p className="text-xs text-muted-foreground">
                   <span className="text-green-600 font-medium">
                     {stats?.activeApplications} active
@@ -175,7 +175,7 @@ export default function DashboardPage() {
               <Skeleton className="h-8 w-20" />
             ) : (
               <>
-                <div className="text-3xl font-bold">{stats?.recentLogins}</div>
+                <div className="text-3xl font-bold">{stats?.recentLogins ?? "—"}</div>
                 <p className="text-xs text-muted-foreground">
                   In the last 7 days
                 </p>
@@ -198,13 +198,13 @@ export default function DashboardPage() {
           <CardContent>
             <div className="flex items-center gap-2">
               <span className="relative flex h-2.5 w-2.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500"></span>
+                {stats && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>}
+                <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${stats ? "bg-green-500" : "bg-red-500"}`}></span>
               </span>
-              <span className="text-xl font-semibold text-green-600">Operational</span>
+              <span className={`text-xl font-semibold ${stats ? "text-green-600" : "text-red-600"}`}>{stats ? "Connected" : "Unavailable"}</span>
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              All services running normally
+              {stats ? "SSO API responding" : "Could not load SSO data"}
             </p>
           </CardContent>
         </Card>

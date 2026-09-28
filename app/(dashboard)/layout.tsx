@@ -19,7 +19,7 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { isAuthenticated, isLoading, isSuperAdmin, mustChangePassword, checkAuth } = useAuth();
+  const { isAuthenticated, isLoading, isSuperAdmin, mustChangePassword, authError, checkAuth } = useAuth();
   const router = useRouter();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
@@ -28,7 +28,7 @@ export default function DashboardLayout({
   }, [checkAuth]);
 
   useEffect(() => {
-    if (isLoading) return;
+    if (isLoading || authError) return;
 
     if (!isAuthenticated) {
       router.push("/login");
@@ -44,7 +44,7 @@ export default function DashboardLayout({
       router.push("/portal");
       return;
     }
-  }, [isLoading, isAuthenticated, isSuperAdmin, mustChangePassword, router]);
+  }, [isLoading, isAuthenticated, isSuperAdmin, mustChangePassword, authError, router]);
 
   if (isLoading) {
     return (
@@ -57,7 +57,14 @@ export default function DashboardLayout({
     );
   }
 
-  if (!isAuthenticated) {
+  if (authError) {
+    return <div className="flex min-h-screen flex-col items-center justify-center gap-4 p-6" role="alert">
+      <p>{authError}</p>
+      <button className="rounded-md border px-4 py-2" onClick={() => checkAuth()}>Try again</button>
+    </div>;
+  }
+
+  if (!isAuthenticated || mustChangePassword || !isSuperAdmin) {
     return null;
   }
 

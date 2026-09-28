@@ -4,51 +4,32 @@
  * Real API implementation for authentication endpoints.
  */
 
-import { apiClient, setAuthToken, removeAuthToken, hasAuthToken } from "./client";
+import { apiClient } from "./client";
 import { AuthUser, LoginResponse, MessageResponse } from "@/types";
 import { RegisterData, RegisterResponse, ChangePasswordData } from "@/types/auth";
 
 export const authApi = {
   async login({ username, password }: { username: string; password: string }): Promise<LoginResponse> {
-    const response = await apiClient.post<LoginResponse>("/auth/login", {
+    return apiClient.post<LoginResponse>("/auth/login", {
       username,
       password,
     });
-
-    // Store the token
-    if (response.access_token) {
-      setAuthToken(response.access_token);
-    }
-
-    return response;
   },
 
   async logout(): Promise<MessageResponse> {
-    const response = await apiClient.post<MessageResponse>("/auth/logout");
-    removeAuthToken();
-    return response;
+    return apiClient.post<MessageResponse>("/auth/logout");
   },
 
   async logoutAll(): Promise<MessageResponse> {
-    const response = await apiClient.post<MessageResponse>("/auth/logout-all");
-    removeAuthToken();
-    return response;
+    return apiClient.post<MessageResponse>("/auth/logout-all");
   },
 
   async me(): Promise<{ data: AuthUser }> {
     return apiClient.get<{ data: AuthUser }>("/auth/me");
   },
 
-  async refresh(): Promise<{ access_token: string; token_type: string }> {
-    const response = await apiClient.post<{ access_token: string; token_type: string }>(
-      "/auth/refresh"
-    );
-
-    if (response.access_token) {
-      setAuthToken(response.access_token);
-    }
-
-    return response;
+  async refresh(): Promise<{ token_type: string }> {
+    return apiClient.post<{ token_type: string }>("/auth/refresh");
   },
 
   async register(data: RegisterData): Promise<RegisterResponse> {
@@ -59,16 +40,4 @@ export const authApi = {
     return apiClient.post<{ message: string }>("/auth/change-password", data);
   },
 
-  // Helper methods for token management
-  setToken(token: string | null) {
-    if (token) {
-      setAuthToken(token);
-    } else {
-      removeAuthToken();
-    }
-  },
-
-  hasToken() {
-    return hasAuthToken();
-  },
 };

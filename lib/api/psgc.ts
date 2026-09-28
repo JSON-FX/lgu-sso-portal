@@ -1,11 +1,10 @@
 /**
  * PSGC (Philippine Standard Geographic Code) API Service
  *
- * Uses the psgc.cloud API for Philippine location data.
- * API Documentation: https://psgc.cloud/api-docs
+ * Uses the SSO backend's cached Philippine location endpoints.
  */
 
-const PSGC_API_BASE = "https://psgc.cloud/api";
+import { apiClient } from "./client";
 
 export interface PSGCRegion {
   code: string;
@@ -32,11 +31,8 @@ export interface PSGCBarangay {
 }
 
 async function fetchPSGC<T>(endpoint: string): Promise<T> {
-  const response = await fetch(`${PSGC_API_BASE}${endpoint}`);
-  if (!response.ok) {
-    throw new Error(`PSGC API error: ${response.status} ${response.statusText}`);
-  }
-  return response.json();
+  const response = await apiClient.get<{ data: T }>(`/locations${endpoint}`);
+  return response.data;
 }
 
 export const psgcApi = {
@@ -45,14 +41,14 @@ export const psgcApi = {
   },
 
   async getProvinces(regionCode: string): Promise<PSGCProvince[]> {
-    return fetchPSGC<PSGCProvince[]>(`/regions/${regionCode}/provinces`);
+    return fetchPSGC<PSGCProvince[]>(`/regions/${encodeURIComponent(regionCode)}/provinces`);
   },
 
   async getMunicipalities(provinceCode: string): Promise<PSGCMunicipality[]> {
-    return fetchPSGC<PSGCMunicipality[]>(`/provinces/${provinceCode}/cities-municipalities`);
+    return fetchPSGC<PSGCMunicipality[]>(`/provinces/${encodeURIComponent(provinceCode)}/cities`);
   },
 
   async getBarangays(municipalityCode: string): Promise<PSGCBarangay[]> {
-    return fetchPSGC<PSGCBarangay[]>(`/cities-municipalities/${municipalityCode}/barangays`);
+    return fetchPSGC<PSGCBarangay[]>(`/cities/${encodeURIComponent(municipalityCode)}/barangays`);
   },
 };

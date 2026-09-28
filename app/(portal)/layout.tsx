@@ -18,7 +18,7 @@ export default function PortalLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { isAuthenticated, isLoading, mustChangePassword, checkAuth } = useAuth();
+  const { isAuthenticated, isLoading, mustChangePassword, authError, checkAuth } = useAuth();
   const router = useRouter();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
@@ -27,7 +27,7 @@ export default function PortalLayout({
   }, [checkAuth]);
 
   useEffect(() => {
-    if (isLoading) return;
+    if (isLoading || authError) return;
 
     if (!isAuthenticated) {
       router.push("/login");
@@ -38,7 +38,7 @@ export default function PortalLayout({
       router.push("/setup-account");
       return;
     }
-  }, [isLoading, isAuthenticated, mustChangePassword, router]);
+  }, [isLoading, isAuthenticated, mustChangePassword, authError, router]);
 
   if (isLoading) {
     return (
@@ -51,7 +51,14 @@ export default function PortalLayout({
     );
   }
 
-  if (!isAuthenticated) {
+  if (authError) {
+    return <div className="flex min-h-screen flex-col items-center justify-center gap-4 p-6" role="alert">
+      <p>{authError}</p>
+      <button className="rounded-md border px-4 py-2" onClick={() => checkAuth()}>Try again</button>
+    </div>;
+  }
+
+  if (!isAuthenticated || mustChangePassword) {
     return null;
   }
 

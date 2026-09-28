@@ -8,7 +8,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { User, Lock, Loader2, AlertCircle } from "lucide-react";
-import Link from "next/link";
 
 import { toast } from "sonner";
 import { ApiError } from "@/lib/api";
@@ -168,10 +167,7 @@ export default function LoginPage() {
 
               <div className="mt-6 text-center text-sm text-muted-foreground">
                 <p>
-                  Don&apos;t have an account?{" "}
-                  <Link href="/register" className="text-primary hover:underline">
-                    Register here
-                  </Link>
+                  Contact your SSO administrator to request an account.
                 </p>
               </div>
             </CardContent>

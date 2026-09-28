@@ -1,45 +1,38 @@
 "use client";
 
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
 import { AuthUser, RegisterData, RegisterResponse } from "@/types";
-import { api } from "@/lib/api";
+import { api, ApiError } from "@/lib/api";
 
 interface AuthState {
   user: AuthUser | null;
-  token: string | null;
   isLoading: boolean;
   isAuthenticated: boolean;
   isSuperAdmin: boolean;
   mustChangePassword: boolean;
-  sessionPassword: string | null;
   login: (username: string, password: string) => Promise<void>;
-  logout: () => Promise<void>;
+  logout: (everywhere?: boolean) => Promise<void>;
+  authError: string | null;
   checkAuth: () => Promise<void>;
   register: (data: RegisterData) => Promise<RegisterResponse>;
   changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
 }
 
 function checkIsSuperAdmin(user: AuthUser): boolean {
-  return user.applications?.some((app) => app.role === "super_administrator") ?? false;
+  return user.applications?.some((app) => app.name === "Admin App Management System" && app.role === "super_administrator") ?? false;
 }
 
 export const useAuth = create<AuthState>()(
-  persist(
-    (set, get) => ({
+    (set) => ({
       user: null,
-      token: null,
+      authError: null,
       isLoading: true,
       isAuthenticated: false,
       isSuperAdmin: false,
       mustChangePassword: false,
-      sessionPassword: null,
 
       login: async (username: string, password: string) => {
-        const response = await api.auth.login({ username, password });
-
-        // Set token in API layer to make authenticated requests
-        api.auth.setToken(response.access_token);
+        await api.auth.login({ username, password });
 
         // Fetch full user data including applications from /auth/me
         const meResponse = await api.auth.me();
@@ -48,58 +41,45 @@ export const useAuth = create<AuthState>()(
 
         set({
           user,
-          token: response.access_token,
+          authError: null,
           isAuthenticated: true,
           isSuperAdmin,
           mustChangePassword: user.must_change_password,
-          sessionPassword: password,
           isLoading: false,
         });
       },
 
-      logout: async () => {
+      logout: async (everywhere = false) => {
         try {
-          await api.auth.logout();
-        } finally {
-          set({
-            user: null,
-            token: null,
-            isAuthenticated: false,
-            isSuperAdmin: false,
-            mustChangePassword: false,
-            sessionPassword: null,
-            isLoading: false,
-          });
+          if (everywhere) await api.auth.logoutAll();
+          else await api.auth.logout();
+        } catch (error) {
+          if (!(error instanceof ApiError) || error.status !== 401) throw error;
         }
+        set({ user: null, isAuthenticated: false, isSuperAdmin: false, mustChangePassword: false, isLoading: false, authError: null });
       },
 
       checkAuth: async () => {
-        const { token } = get();
-
-        if (!token) {
-          set({ isLoading: false, isAuthenticated: false, user: null });
-          return;
-        }
-
+        // Remove bearer tokens stored by earlier portal releases.
+        localStorage.removeItem("lgu-sso-auth");
+        document.cookie = "auth_token=; Max-Age=0; path=/; SameSite=Lax";
         try {
-          // Restore token in API layer
-          api.auth.setToken(token);
           const response = await api.auth.me();
           const user = response.data;
 
           set({
             user,
+            authError: null,
             isAuthenticated: true,
             isSuperAdmin: checkIsSuperAdmin(user),
             mustChangePassword: user.must_change_password,
             isLoading: false,
           });
-        } catch {
+        } catch (error) {
           set({
-            user: null,
-            token: null,
-            isLoading: false,
-            isAuthenticated: false,
+            user: null, isLoading: false, isAuthenticated: false,
+            isSuperAdmin: false, mustChangePassword: false,
+            authError: error instanceof ApiError && error.status === 401 ? null : "Sign-in service is temporarily unavailable. Please try again.",
           });
         }
       },
@@ -110,12 +90,7 @@ export const useAuth = create<AuthState>()(
 
       changePassword: async (currentPassword: string, newPassword: string): Promise<void> => {
         await api.auth.changePassword({ current_password: currentPassword, new_password: newPassword });
-        set({ mustChangePassword: false, sessionPassword: null });
+        set({ mustChangePassword: false });
       },
-    }),
-    {
-      name: "lgu-sso-auth",
-      partialize: (state) => ({ token: state.token, user: state.user, sessionPassword: state.sessionPassword }),
-    }
-  )
+    })
 );
