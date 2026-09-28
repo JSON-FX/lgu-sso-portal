@@ -169,6 +169,15 @@
 .lp-admin-credential > div { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; min-width: 0; }
 .lp-admin-credential code, .lp-admin-secret-value { overflow-wrap: anywhere; font-size: 15px; }
 .lp-admin-credential p { margin: 0; }
+.lp-admin-audit-filters { display: flex; flex-wrap: wrap; align-items: end; gap: 16px; margin-bottom: 24px; }
+.lp-admin-audit-filters .lp-admin-field { flex: 1 1 170px; max-width: 240px; }
+.lp-admin-audit-filters > button { min-height: 44px; }
+.lp-admin-audit-date { display: flex; align-items: center; gap: 8px; margin: 0 0 16px; color: var(--muted-foreground); font-size: 14px; }
+.lp-admin-time { white-space: nowrap; color: var(--muted-foreground); font-size: 13px; }
+.lp-admin-details { display: grid; grid-template-columns: 110px 1fr; gap: 12px; font-size: 14px; }
+.lp-admin-details dt { color: var(--muted-foreground); }
+.lp-admin-details dd { min-width: 0; overflow-wrap: anywhere; }
+.lp-admin-metadata { max-height: 220px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
 .lp-admin-empty { padding: 44px 12px; color: var(--muted-foreground); text-align: center; }
 .lp-admin-pagination { display: flex; justify-content: space-between; align-items: center; gap: 20px; padding: 16px 0; color: var(--muted-foreground); font-size: 14px; }
 .lp-admin-pagination > div { display: flex; align-items: center; gap: 12px; }

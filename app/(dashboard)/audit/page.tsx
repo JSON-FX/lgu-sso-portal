@@ -1,629 +1,71 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command";
-import {
-  ScrollText,
-  Filter,
-  RefreshCw,
-  ChevronLeft,
-  ChevronRight,
-  LogIn,
-  LogOut,
-  UserPlus,
-  UserMinus,
-  UserCog,
-  Key,
-  Shield,
-  Settings,
-  X,
-  Check,
-  ChevronsUpDown,
-} from "lucide-react";
-import { api } from "@/lib/api";
-import { AuditLog, Employee, Application, AuditLogFilters } from "@/types";
+import { useCallback, useEffect, useState } from "react";
 import { format } from "date-fns";
+import { ArrowRight, ChevronLeft, ChevronRight, FileClock, RefreshCw, Search } from "lucide-react";
+import { PortalStatus } from "@/components/portal/design";
+import { PortalDatePicker, PortalSelect } from "@/components/portal/selection";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { api } from "@/lib/api";
+import type { Application, AuditAction, AuditLog, Employee, PaginatedResponse } from "@/types";
 
-const actionTypes = [
-  { value: "login", label: "Login", icon: LogIn },
-  { value: "logout", label: "Logout", icon: LogOut },
-  { value: "employee_created", label: "Employee Created", icon: UserPlus },
-  { value: "employee_deleted", label: "Employee Deleted", icon: UserMinus },
-  { value: "employee_updated", label: "Employee Updated", icon: UserCog },
-  { value: "access_granted", label: "Access Granted", icon: Key },
-  { value: "access_revoked", label: "Access Revoked", icon: Shield },
-  { value: "role_updated", label: "Role Updated", icon: Settings },
-];
-
-const getActionIcon = (action: string) => {
-  const actionType = actionTypes.find((a) => a.value === action);
-  return actionType?.icon || ScrollText;
-};
-
-const getActionBadgeVariant = (action: string) => {
-  switch (action) {
-    case "login":
-    case "access_granted":
-      return "bg-green-500/10 text-green-700 border-green-200";
-    case "logout":
-    case "access_revoked":
-      return "bg-red-500/10 text-red-700 border-red-200";
-    case "employee_created":
-      return "bg-blue-500/10 text-blue-700 border-blue-200";
-    case "employee_deleted":
-      return "bg-destructive/10 text-destructive border-destructive/20";
-    case "employee_updated":
-    case "role_updated":
-      return "bg-amber-500/10 text-amber-700 border-amber-200";
-    default:
-      return "bg-muted text-muted-foreground";
-  }
-};
+const actions: AuditAction[] = ["login", "logout", "logout_all", "token_refresh", "token_validate", "app_authorize"];
+const actionName = (action: string) => action.split("_").map((part) => part[0].toUpperCase() + part.slice(1)).join(" ");
+const dateTime = (value: string) => { const date = new Date(value); return Number.isNaN(date.getTime()) ? value : format(date, "dd MMM yyyy · HH:mm"); };
 
 export default function AuditLogsPage() {
   const [logs, setLogs] = useState<AuditLog[]>([]);
+  const [meta, setMeta] = useState<PaginatedResponse<AuditLog>["meta"] | null>(null);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [applications, setApplications] = useState<Application[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isFilterOpen, setIsFilterOpen] = useState(false);
-  const [employeeComboboxOpen, setEmployeeComboboxOpen] = useState(false);
-  const [applicationComboboxOpen, setApplicationComboboxOpen] = useState(false);
-
-  // Pagination state
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
-  const [totalPages, setTotalPages] = useState(1);
-  const [total, setTotal] = useState(0);
-
-  // Filter state
-  const [filters, setFilters] = useState<AuditLogFilters>({
-    action: undefined,
-    employee_uuid: undefined,
-    application_uuid: undefined,
-    from: undefined,
-    to: undefined,
-  });
-
-  // Active filters display
-  const activeFiltersCount = Object.values(filters).filter(
-    (v) => v !== undefined && v !== ""
-  ).length;
-
-  const loadData = async () => {
-    setIsLoading(true);
+  const [query, setQuery] = useState("");
+  const [action, setAction] = useState("all");
+  const [employee, setEmployee] = useState("all");
+  const [application, setApplication] = useState("all");
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
+  const [detail, setDetail] = useState<AuditLog | null>(null);
+  const load = useCallback(async () => {
+    if (from && to && from > to) return;
+    setLoading(true); setError("");
     try {
-      const [logsRes, employeesRes, appsRes] = await Promise.all([
-        api.audit.list({ ...filters, page, per_page: perPage }),
-        api.employees.list(1, 100),
-        api.applications.list(),
-      ]);
-
-      setLogs(logsRes.data);
-      setTotalPages(logsRes.meta.last_page);
-      setTotal(logsRes.meta.total);
-      setEmployees(employeesRes.data);
-      setApplications(appsRes.data);
-    } catch (error) {
-      console.error("Failed to load audit logs:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
+      const response = await api.audit.list({ action: action === "all" ? undefined : action as AuditAction, employee_uuid: employee === "all" ? undefined : employee, application_uuid: application === "all" ? undefined : application, from: from || undefined, to: to || undefined, page, per_page: perPage });
+      setLogs(response.data); setMeta(response.meta);
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "Audit events could not be loaded."); }
+    finally { setLoading(false); }
+  }, [action, employee, application, from, to, page, perPage]);
+  useEffect(() => { void Promise.resolve().then(load); }, [load]);
   useEffect(() => {
-    loadData();
-  }, [page, perPage, filters]);
-
-  const handleFilterChange = (key: keyof AuditLogFilters, value: string | undefined) => {
-    setFilters((prev) => ({
-      ...prev,
-      [key]: value === "all" || value === "" ? undefined : value,
-    }));
-    setPage(1);
-  };
-
-  const clearFilters = () => {
-    setFilters({
-      action: undefined,
-      employee_uuid: undefined,
-      application_uuid: undefined,
-      from: undefined,
-      to: undefined,
+    let active = true;
+    void Promise.allSettled([api.employees.list(1, 100), api.applications.list()]).then(([people, apps]) => {
+      if (!active) return;
+      if (people.status === "fulfilled") setEmployees(people.value.data);
+      if (apps.status === "fulfilled") setApplications(apps.value.data);
     });
-    setPage(1);
-  };
+    return () => { active = false; };
+  }, []);
+  const change = (setter: (value: string) => void, value: string) => { setter(value); setPage(1); };
+  const reset = () => { setAction("all"); setEmployee("all"); setApplication("all"); setFrom(""); setTo(""); setQuery(""); setPage(1); };
+  const visible = logs.filter((log) => `${actionName(log.action)} ${log.employee?.full_name || ""} ${log.application?.name || ""}`.toLowerCase().includes(query.toLowerCase()));
 
-  const handleRefresh = () => {
-    loadData();
-  };
-
-  return (
-    <div className="space-y-6">
-      {/* Page Header */}
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Audit Logs</h1>
-          <p className="text-muted-foreground">Track all system activities and changes</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={handleRefresh}>
-            <RefreshCw className="mr-2 h-4 w-4" />
-            Refresh
-          </Button>
-          <Dialog open={isFilterOpen} onOpenChange={setIsFilterOpen}>
-            <DialogTrigger asChild>
-              <Button variant="outline" size="sm" className="relative">
-                <Filter className="mr-2 h-4 w-4" />
-                Filters
-                {activeFiltersCount > 0 && (
-                  <Badge className="ml-2 h-5 w-5 rounded-full p-0 text-xs">
-                    {activeFiltersCount}
-                  </Badge>
-                )}
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[480px]">
-              <DialogHeader>
-                <DialogTitle>Filter Audit Logs</DialogTitle>
-                <DialogDescription>
-                  Narrow down the audit logs by specific criteria
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-5 py-4">
-                <div className="space-y-2">
-                  <Label>Action Type</Label>
-                  <Select
-                    value={filters.action || "all"}
-                    onValueChange={(value) => handleFilterChange("action", value)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="All actions" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All actions</SelectItem>
-                      {actionTypes.map((action) => (
-                        <SelectItem key={action.value} value={action.value}>
-                          {action.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Employee</Label>
-                  <Popover open={employeeComboboxOpen} onOpenChange={setEmployeeComboboxOpen}>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        role="combobox"
-                        aria-expanded={employeeComboboxOpen}
-                        className="w-full justify-between font-normal"
-                      >
-                        {filters.employee_uuid
-                          ? employees.find((emp) => emp.uuid === filters.employee_uuid)?.full_name
-                          : "All employees"}
-                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-                      <Command>
-                        <CommandInput placeholder="Search employees..." />
-                        <CommandList>
-                          <CommandEmpty>No employee found.</CommandEmpty>
-                          <CommandGroup>
-                            <CommandItem
-                              value="all"
-                              onSelect={() => {
-                                handleFilterChange("employee_uuid", undefined);
-                                setEmployeeComboboxOpen(false);
-                              }}
-                            >
-                              <Check
-                                className={`mr-2 h-4 w-4 ${
-                                  !filters.employee_uuid ? "opacity-100" : "opacity-0"
-                                }`}
-                              />
-                              All employees
-                            </CommandItem>
-                            {employees.map((emp) => (
-                              <CommandItem
-                                key={emp.uuid}
-                                value={emp.full_name}
-                                onSelect={() => {
-                                  handleFilterChange("employee_uuid", emp.uuid);
-                                  setEmployeeComboboxOpen(false);
-                                }}
-                              >
-                                <Check
-                                  className={`mr-2 h-4 w-4 ${
-                                    filters.employee_uuid === emp.uuid ? "opacity-100" : "opacity-0"
-                                  }`}
-                                />
-                                {emp.full_name}
-                              </CommandItem>
-                            ))}
-                          </CommandGroup>
-                        </CommandList>
-                      </Command>
-                    </PopoverContent>
-                  </Popover>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Application</Label>
-                  <Popover open={applicationComboboxOpen} onOpenChange={setApplicationComboboxOpen}>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        role="combobox"
-                        aria-expanded={applicationComboboxOpen}
-                        className="w-full justify-between font-normal"
-                      >
-                        {filters.application_uuid
-                          ? applications.find((app) => app.uuid === filters.application_uuid)?.name
-                          : "All applications"}
-                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-                      <Command>
-                        <CommandInput placeholder="Search applications..." />
-                        <CommandList>
-                          <CommandEmpty>No application found.</CommandEmpty>
-                          <CommandGroup>
-                            <CommandItem
-                              value="all"
-                              onSelect={() => {
-                                handleFilterChange("application_uuid", undefined);
-                                setApplicationComboboxOpen(false);
-                              }}
-                            >
-                              <Check
-                                className={`mr-2 h-4 w-4 ${
-                                  !filters.application_uuid ? "opacity-100" : "opacity-0"
-                                }`}
-                              />
-                              All applications
-                            </CommandItem>
-                            {applications.map((app) => (
-                              <CommandItem
-                                key={app.uuid}
-                                value={app.name}
-                                onSelect={() => {
-                                  handleFilterChange("application_uuid", app.uuid);
-                                  setApplicationComboboxOpen(false);
-                                }}
-                              >
-                                <Check
-                                  className={`mr-2 h-4 w-4 ${
-                                    filters.application_uuid === app.uuid ? "opacity-100" : "opacity-0"
-                                  }`}
-                                />
-                                {app.name}
-                              </CommandItem>
-                            ))}
-                          </CommandGroup>
-                        </CommandList>
-                      </Command>
-                    </PopoverContent>
-                  </Popover>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Date Range</Label>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1.5">
-                      <Label className="text-xs text-muted-foreground">From</Label>
-                      <Input
-                        type="date"
-                        value={filters.from || ""}
-                        onChange={(e) => handleFilterChange("from", e.target.value)}
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label className="text-xs text-muted-foreground">To</Label>
-                      <Input
-                        type="date"
-                        value={filters.to || ""}
-                        onChange={(e) => handleFilterChange("to", e.target.value)}
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex gap-3 pt-2">
-                  <Button
-                    variant="outline"
-                    className="flex-1"
-                    onClick={clearFilters}
-                    disabled={activeFiltersCount === 0}
-                  >
-                    Clear All
-                  </Button>
-                  <Button className="flex-1" onClick={() => setIsFilterOpen(false)}>
-                    Apply Filters
-                  </Button>
-                </div>
-              </div>
-            </DialogContent>
-          </Dialog>
-        </div>
-      </div>
-
-      {/* Active Filters Display */}
-      {activeFiltersCount > 0 && (
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-sm text-muted-foreground">Active filters:</span>
-          {filters.action && (
-            <Badge variant="secondary" className="gap-1">
-              Action: {actionTypes.find((a) => a.value === filters.action)?.label}
-              <button onClick={() => handleFilterChange("action", undefined)}>
-                <X className="h-3 w-3" />
-              </button>
-            </Badge>
-          )}
-          {filters.employee_uuid && (
-            <Badge variant="secondary" className="gap-1">
-              Employee: {employees.find((e) => e.uuid === filters.employee_uuid)?.full_name}
-              <button onClick={() => handleFilterChange("employee_uuid", undefined)}>
-                <X className="h-3 w-3" />
-              </button>
-            </Badge>
-          )}
-          {filters.application_uuid && (
-            <Badge variant="secondary" className="gap-1">
-              App: {applications.find((a) => a.uuid === filters.application_uuid)?.name}
-              <button onClick={() => handleFilterChange("application_uuid", undefined)}>
-                <X className="h-3 w-3" />
-              </button>
-            </Badge>
-          )}
-          {(filters.from || filters.to) && (
-            <Badge variant="secondary" className="gap-1">
-              Date: {filters.from || "..."} - {filters.to || "..."}
-              <button
-                onClick={() => {
-                  handleFilterChange("from", undefined);
-                  handleFilterChange("to", undefined);
-                }}
-              >
-                <X className="h-3 w-3" />
-              </button>
-            </Badge>
-          )}
-          <Button variant="ghost" size="sm" onClick={clearFilters}>
-            Clear all
-          </Button>
-        </div>
-      )}
-
-      {/* Logs Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <ScrollText className="h-5 w-5" />
-            Activity Log
-          </CardTitle>
-          <CardDescription>
-            {total} total log{total !== 1 ? "s" : ""} • Showing page {page} of {totalPages}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[180px]">Timestamp</TableHead>
-                <TableHead>Action</TableHead>
-                <TableHead>Employee</TableHead>
-                <TableHead>Application</TableHead>
-                <TableHead className="w-[200px]">Details</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading ? (
-                Array.from({ length: 10 }).map((_, i) => (
-                  <TableRow key={i}>
-                    <TableCell>
-                      <Skeleton className="h-4 w-32" />
-                    </TableCell>
-                    <TableCell>
-                      <Skeleton className="h-6 w-24" />
-                    </TableCell>
-                    <TableCell>
-                      <Skeleton className="h-4 w-28" />
-                    </TableCell>
-                    <TableCell>
-                      <Skeleton className="h-4 w-24" />
-                    </TableCell>
-                    <TableCell>
-                      <Skeleton className="h-4 w-36" />
-                    </TableCell>
-                  </TableRow>
-                ))
-              ) : logs.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={5} className="h-32 text-center">
-                    <div className="flex flex-col items-center gap-2">
-                      <ScrollText className="h-8 w-8 text-muted-foreground/50" />
-                      <p className="text-muted-foreground">No audit logs found</p>
-                      {activeFiltersCount > 0 && (
-                        <Button variant="link" size="sm" onClick={clearFilters}>
-                          Clear filters
-                        </Button>
-                      )}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ) : (
-                logs.map((log) => {
-                  const ActionIcon = getActionIcon(log.action);
-                  return (
-                    <TableRow key={log.id}>
-                      <TableCell className="font-mono text-sm text-muted-foreground">
-                        {format(new Date(log.created_at), "MMM d, yyyy HH:mm")}
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          variant="outline"
-                          className={`gap-1 ${getActionBadgeVariant(log.action)}`}
-                        >
-                          <ActionIcon className="h-3 w-3" />
-                          {actionTypes.find((a) => a.value === log.action)?.label || log.action}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        {log.employee ? (
-                          <div className="flex items-center gap-2">
-                            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
-                              {log.employee.full_name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
-                            </div>
-                            <span className="text-sm">{log.employee.full_name}</span>
-                          </div>
-                        ) : (
-                          <span className="text-muted-foreground">-</span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {log.application ? (
-                          <span className="text-sm">{log.application.name}</span>
-                        ) : (
-                          <span className="text-muted-foreground">-</span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <span className="text-sm text-muted-foreground line-clamp-1">
-                          {log.metadata && Object.keys(log.metadata).length > 0
-                            ? JSON.stringify(log.metadata)
-                            : "-"}
-                        </span>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })
-              )}
-            </TableBody>
-          </Table>
-
-          {/* Pagination */}
-          <div className="mt-4 flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <p className="text-sm text-muted-foreground">
-                Showing {total > 0 ? (page - 1) * perPage + 1 : 0} to {Math.min(page * perPage, total)} of {total} entries
-              </p>
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground">Show</span>
-                <Select
-                  value={perPage.toString()}
-                  onValueChange={(value) => {
-                    setPerPage(Number(value));
-                    setPage(1);
-                  }}
-                >
-                  <SelectTrigger className="w-[70px] h-8">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="10">10</SelectItem>
-                    <SelectItem value="25">25</SelectItem>
-                    <SelectItem value="50">50</SelectItem>
-                    <SelectItem value="100">100</SelectItem>
-                  </SelectContent>
-                </Select>
-                <span className="text-sm text-muted-foreground">per page</span>
-              </div>
-            </div>
-            {totalPages > 1 && (
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  disabled={page === 1}
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                  Previous
-                </Button>
-                <div className="flex items-center gap-1">
-                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                    let pageNum: number;
-                    if (totalPages <= 5) {
-                      pageNum = i + 1;
-                    } else if (page <= 3) {
-                      pageNum = i + 1;
-                    } else if (page >= totalPages - 2) {
-                      pageNum = totalPages - 4 + i;
-                    } else {
-                      pageNum = page - 2 + i;
-                    }
-                    return (
-                      <Button
-                        key={pageNum}
-                        variant={page === pageNum ? "default" : "outline"}
-                        size="sm"
-                        className="w-8 p-0"
-                        onClick={() => setPage(pageNum)}
-                      >
-                        {pageNum}
-                      </Button>
-                    );
-                  })}
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={page === totalPages}
-                >
-                  Next
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-    </div>
-  );
+  return <div className="lp-admin">
+    <header className="lp-admin-heading"><div><p className="lp-admin-eyebrow">Accountability</p><h1>Audit log</h1><p className="lp-admin-description">Trace identity and access changes. Select an event to inspect its recorded details.</p></div></header>
+    <div className="lp-admin-toolbar"><div className="lp-admin-search"><Search size={18} aria-hidden="true" /><Input aria-label="Search displayed events" placeholder="Search displayed events" value={query} onChange={(event) => setQuery(event.target.value)} /></div><div className="lp-admin-filter"><PortalSelect label="Event action" value={action} options={[{ value: "all", label: "All actions" }, ...actions.map((value) => ({ value, label: actionName(value) }))]} onValueChange={(value) => change(setAction, value)} /></div><span className="lp-admin-hint">{meta ? `${meta.total} ${meta.total === 1 ? "event" : "events"}` : ""}</span></div>
+    <div className="lp-admin-audit-filters"><div className="lp-admin-field"><label htmlFor="audit-employee">Employee</label><PortalSelect id="audit-employee" label="Employee" searchable value={employee} options={[{ value: "all", label: "All employees" }, ...employees.map((item) => ({ value: item.uuid, label: item.full_name }))]} onValueChange={(value) => change(setEmployee, value)} /></div><div className="lp-admin-field"><label htmlFor="audit-application">Application</label><PortalSelect id="audit-application" label="Application" searchable value={application} options={[{ value: "all", label: "All applications" }, ...applications.map((item) => ({ value: item.uuid, label: item.name }))]} onValueChange={(value) => change(setApplication, value)} /></div><div className="lp-admin-field"><label htmlFor="audit-from">From date</label><PortalDatePicker id="audit-from" label="From date" value={from} max={to || undefined} onValueChange={(value) => change(setFrom, value)} /></div><div className="lp-admin-field"><label htmlFor="audit-to">To date</label><PortalDatePicker id="audit-to" label="To date" value={to} min={from || undefined} onValueChange={(value) => change(setTo, value)} /></div><Button variant="outline" onClick={() => void load()}><RefreshCw aria-hidden="true" />Refresh events</Button><Button variant="ghost" onClick={reset}>Reset filters</Button></div>
+    {from && to && from > to && <p role="alert" className="lp-admin-error">Choose an end date on or after the start date.</p>}
+    <div className="lp-admin-audit-date"><FileClock size={18} aria-hidden="true" />Recorded identity and access events</div>
+    {error ? <PortalStatus kind="error" title="We couldn’t load audit events." action={<Button variant="outline" onClick={() => void load()}>Try again</Button>}>{error}</PortalStatus> : <div className="lp-admin-table"><Table><TableHeader><TableRow><TableHead>Time</TableHead><TableHead>Event</TableHead><TableHead>Actor</TableHead><TableHead>Record</TableHead><TableHead className="text-right">Details</TableHead></TableRow></TableHeader><TableBody>
+      {loading ? [1, 2, 3, 4].map((item) => <TableRow key={item}><TableCell colSpan={5}><Skeleton className="h-10 w-full" /></TableCell></TableRow>) : visible.length ? visible.map((log) => <TableRow key={log.id}><TableCell className="lp-admin-time">{dateTime(log.created_at)}</TableCell><TableCell><strong>{actionName(log.action)}</strong></TableCell><TableCell>{log.employee?.full_name || "System"}</TableCell><TableCell>{log.application?.name || "—"}</TableCell><TableCell className="text-right"><Button variant="ghost" size="sm" onClick={() => setDetail(log)} aria-label={`View ${actionName(log.action).toLowerCase()} event at ${dateTime(log.created_at)}`}>View<ArrowRight aria-hidden="true" /></Button></TableCell></TableRow>) : <TableRow><TableCell colSpan={5}><div className="lp-admin-empty">No audit events match these filters.</div></TableCell></TableRow>}
+    </TableBody></Table></div>}
+    {!error && !loading && meta && <div className="lp-admin-pagination"><span>Showing {meta.from ?? 0}–{meta.to ?? 0} of {meta.total} events</span><div><PortalSelect label="Events per page" value={String(perPage)} options={[10, 25, 50, 100].map((value) => ({ value: String(value), label: `${value} per page` }))} onValueChange={(value) => { setPerPage(Number(value)); setPage(1); }} /><Button variant="outline" size="sm" onClick={() => setPage((old) => old - 1)} disabled={page <= 1}><ChevronLeft aria-hidden="true" />Previous</Button><span>Page {page} of {Math.max(1, meta.last_page)}</span><Button variant="outline" size="sm" onClick={() => setPage((old) => old + 1)} disabled={page >= meta.last_page}>Next<ChevronRight aria-hidden="true" /></Button></div></div>}
+    <Dialog open={!!detail} onOpenChange={(open) => { if (!open) setDetail(null); }}><DialogContent><DialogHeader><DialogTitle>{detail && actionName(detail.action)}</DialogTitle><DialogDescription>{detail && dateTime(detail.created_at)}</DialogDescription></DialogHeader>{detail && <dl className="lp-admin-details"><dt>Actor</dt><dd>{detail.employee?.full_name || "System"}</dd><dt>Application</dt><dd>{detail.application?.name || "—"}</dd><dt>IP address</dt><dd>{detail.ip_address || "—"}</dd><dt>User agent</dt><dd>{detail.user_agent || "—"}</dd><dt>Metadata</dt><dd><pre className="lp-admin-metadata">{JSON.stringify(detail.metadata || {}, null, 2)}</pre></dd></dl>}</DialogContent></Dialog>
+  </div>;
 }
