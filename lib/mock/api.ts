@@ -33,6 +33,7 @@ import {
 } from "@/types";
 
 import { UpdatePortalProfileData } from "@/types/portal";
+import { ApiError } from "@/lib/api/client";
 
 import {
   mockEmployees,
@@ -211,7 +212,7 @@ export const mockAuthApi = {
     await delay(200);
 
     if (!currentToken) {
-      throw new Error("Unauthenticated.");
+      throw new ApiError("Unauthenticated.", 401);
     }
 
     // Return the actual logged-in employee, not always the default admin
@@ -860,6 +861,16 @@ export const mockSsoApi = {
 // ============================================
 
 export const mockPortalApi = {
+  async getOffices(): Promise<Office[]> {
+    await delay(150);
+    return mockOffices;
+  },
+
+  async getPositions(): Promise<Position[]> {
+    await delay(150);
+    return mockPositions;
+  },
+
   async getProfile(): Promise<Employee> {
     await delay(300);
     const user = currentLoggedInEmployee || mockCurrentUser;
@@ -871,6 +882,8 @@ export const mockPortalApi = {
 
     const user = currentLoggedInEmployee || mockCurrentUser;
     Object.assign(user, data);
+    if (data.office_id !== undefined) (user as Employee).office = mockOffices.find((office) => office.id === data.office_id) || null;
+    if (data.position_id !== undefined) (user as Employee).position = mockPositions.find((position) => position.id === data.position_id) || null;
     (user as Employee).updated_at = new Date().toISOString();
 
     return user as unknown as Employee;

@@ -1,5 +1,5 @@
 import { apiClient } from "./client"
-import type { Employee } from "@/types/employee"
+import type { Employee, Office, Position } from "@/types/employee"
 import type { EmployeeApplication } from "@/types/employee"
 import type { UpdatePortalProfileData } from "@/types/portal"
 
@@ -16,6 +16,16 @@ export const portalApi = {
 
   getApplications: async (): Promise<EmployeeApplication[]> => {
     const response = await apiClient.get<{ data: EmployeeApplication[] }>("/portal/applications")
+    return response.data
+  },
+
+  getOffices: async (): Promise<Office[]> => {
+    const response = await apiClient.get<{ data: Office[] }>("/portal/offices")
+    return response.data
+  },
+
+  getPositions: async (): Promise<Position[]> => {
+    const response = await apiClient.get<{ data: Position[] }>("/portal/positions")
     return response.data
   },
 }

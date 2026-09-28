@@ -1,787 +1,153 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { format, isValid, parseISO } from "date-fns";
+import { Loader2 } from "lucide-react";
+import { toast } from "sonner";
+import { PortalHeading, PortalStatus } from "@/components/portal/design";
+import { PortalDatePicker, PortalSelect } from "@/components/portal/selection";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command";
-import { Loader2, Save, X, Check, ChevronsUpDown, User, Lock, Briefcase, MapPin, Info } from "lucide-react";
-import { toast } from "sonner";
-import { portalApi, api } from "@/lib/api";
-import { psgcApi, PSGCRegion, PSGCProvince, PSGCMunicipality, PSGCBarangay } from "@/lib/api/psgc";
+import { Textarea } from "@/components/ui/textarea";
+import { portalApi } from "@/lib/api";
+import { psgcApi, type PSGCBarangay, type PSGCMunicipality, type PSGCProvince, type PSGCRegion } from "@/lib/api/psgc";
 import type { Employee, Office, Position } from "@/types/employee";
 import type { UpdatePortalProfileData } from "@/types/portal";
 
-interface FormData {
-  email: string;
-  birthday: string;
-  civil_status: Employee["civil_status"];
-  nationality: string;
-  suffix: string;
-  position_id: number | undefined;
-  office_id: number | undefined;
-  date_employed: string;
-  residence: string;
-  house_number: string;
-  block_number: string;
-  building_floor: string;
-  region: string;
-  province: string;
-  city: string;
-  barangay: string;
-}
+type Form = {
+  email: string; suffix: string; birthday: string; civil_status: Employee["civil_status"];
+  nationality: string; office_id?: number; position_id?: number; date_employed: string;
+  region: string; province: string; city: string; barangay: string;
+  house_number: string; block_number: string; building_floor: string; residence: string;
+};
+const fromProfile = (p: Employee): Form => ({
+  email: p.email || "", suffix: p.suffix || "", birthday: p.birthday || "", civil_status: p.civil_status || "single",
+  nationality: p.nationality || "", office_id: p.office?.id, position_id: p.position?.id, date_employed: p.date_employed || "",
+  region: p.region || "", province: p.province || "", city: p.city || "", barangay: p.barangay || "",
+  house_number: p.house_number || "", block_number: p.block_number || "", building_floor: p.building_floor || "", residence: p.residence || "",
+});
+const civilOptions = ["single", "married", "widowed", "separated", "divorced"].map((value) => ({ value, label: value[0].toUpperCase() + value.slice(1) }));
+const dateLabel = (value: string) => { const date = value ? parseISO(value) : null; return date && isValid(date) ? format(date, "PPP") : value; };
+const placeOptions = (items: { code: string; name: string }[]) => items.map(({ code, name }) => ({ value: code, label: name }));
 
-function ProfileField({
-  label,
-  value,
-  mono,
-}: {
-  label: string;
-  value: string | null | undefined;
-  mono?: boolean;
-}) {
-  return (
-    <div className="space-y-2">
-      <Label>{label}</Label>
-      {value ? (
-        <p className={`text-sm pt-1 ${mono ? "font-mono" : ""}`}>{value}</p>
-      ) : (
-        <p className="text-sm pt-1 text-muted-foreground italic">Not set</p>
-      )}
-    </div>
-  );
-}
-
-function ProfileSkeleton() {
-  return (
-    <div className="space-y-6">
-      <div>
-        <Skeleton className="h-8 w-48 mb-2" />
-        <Skeleton className="h-5 w-80" />
-      </div>
-      {Array.from({ length: 4 }).map((_, i) => (
-        <Card key={i}>
-          <CardHeader>
-            <Skeleton className="h-6 w-48" />
-            <Skeleton className="h-4 w-64" />
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {Array.from({ length: 4 }).map((_, j) => (
-                <div key={j} className="space-y-2">
-                  <Skeleton className="h-4 w-24" />
-                  <Skeleton className="h-9 w-full" />
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      ))}
-    </div>
-  );
+function Field({ id, label, value, editing, children }: { id: string; label: string; value?: string | null; editing: boolean; children: ReactNode }) {
+  return <div className="lp-field"><Label htmlFor={id}>{label}</Label>{editing ? children : <p>{value || "Not provided"}</p>}</div>;
 }
 
 export default function PortalProfilePage() {
   const [profile, setProfile] = useState<Employee | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
-  const [formData, setFormData] = useState<FormData>({
-    email: "",
-    birthday: "",
-    civil_status: "single",
-    nationality: "",
-    suffix: "",
-    position_id: undefined,
-    office_id: undefined,
-    date_employed: "",
-    residence: "",
-    house_number: "",
-    block_number: "",
-    building_floor: "",
-    region: "",
-    province: "",
-    city: "",
-    barangay: "",
-  });
-
-  // PSGC lists
+  const [form, setForm] = useState<Form | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [offices, setOffices] = useState<Office[]>([]);
+  const [positions, setPositions] = useState<Position[]>([]);
   const [regions, setRegions] = useState<PSGCRegion[]>([]);
   const [provinces, setProvinces] = useState<PSGCProvince[]>([]);
-  const [municipalities, setMunicipalities] = useState<PSGCMunicipality[]>([]);
+  const [cities, setCities] = useState<PSGCMunicipality[]>([]);
   const [barangays, setBarangays] = useState<PSGCBarangay[]>([]);
+  const [regionCode, setRegionCode] = useState("");
+  const [provinceCode, setProvinceCode] = useState("");
+  const [cityCode, setCityCode] = useState("");
+  const [locationError, setLocationError] = useState(false);
 
-  // Selected codes for cascading
-  const [selectedRegionCode, setSelectedRegionCode] = useState("");
-  const [selectedProvinceCode, setSelectedProvinceCode] = useState("");
-  const [selectedCityCode, setSelectedCityCode] = useState("");
-
-  // Offices
-  const [offices, setOffices] = useState<Office[]>([]);
-
-  // Positions
-  const [positions, setPositions] = useState<Position[]>([]);
-  const [positionOpen, setPositionOpen] = useState(false);
-
-  // Popover open states
-  const [regionOpen, setRegionOpen] = useState(false);
-  const [provinceOpen, setProvinceOpen] = useState(false);
-  const [municipalityOpen, setMunicipalityOpen] = useState(false);
-  const [barangayOpen, setBarangayOpen] = useState(false);
-  const [officeOpen, setOfficeOpen] = useState(false);
-
-  useEffect(() => {
-    async function loadProfile() {
-      try {
-        const data = await portalApi.getProfile();
-        setProfile(data);
-        setFormData({
-          email: data.email || "",
-          birthday: data.birthday || "",
-          civil_status: data.civil_status || "single",
-          nationality: data.nationality || "",
-          suffix: data.suffix || "",
-          position_id: data.position?.id || undefined,
-          office_id: data.office?.id || undefined,
-          date_employed: data.date_employed || "",
-          residence: data.residence || "",
-          house_number: data.house_number || "",
-          block_number: data.block_number || "",
-          building_floor: data.building_floor || "",
-          region: data.region || "",
-          province: data.province || "",
-          city: data.city || "",
-          barangay: data.barangay || "",
-        });
-      } catch (error) {
-        console.error("Failed to load profile:", error);
-        toast.error("Failed to load profile");
-      } finally {
-        setIsLoading(false);
-      }
-    }
-
-    loadProfile();
-    psgcApi.getRegions().then(setRegions).catch(console.error);
-    api.offices.list().then((res) => setOffices(res.data)).catch(() => {});
-    api.positions.list().then((res) => setPositions(res.data)).catch(() => {});
-  }, []);
-
-  const handleRegionChange = async (code: string, name: string) => {
-    setSelectedRegionCode(code);
-    setSelectedProvinceCode("");
-    setSelectedCityCode("");
-    setFormData((prev) => ({ ...prev, region: name, province: "", city: "", barangay: "" }));
-    setProvinces([]);
-    setMunicipalities([]);
-    setBarangays([]);
-
-    if (code) {
-      try {
-        const data = await psgcApi.getProvinces(code);
-        setProvinces(data);
-      } catch (error) {
-        console.error("Failed to load provinces:", error);
-      }
-    }
-  };
-
-  const handleProvinceChange = async (code: string, name: string) => {
-    setSelectedProvinceCode(code);
-    setSelectedCityCode("");
-    setFormData((prev) => ({ ...prev, province: name, city: "", barangay: "" }));
-    setMunicipalities([]);
-    setBarangays([]);
-
-    if (code) {
-      try {
-        const data = await psgcApi.getMunicipalities(code);
-        setMunicipalities(data);
-      } catch (error) {
-        console.error("Failed to load municipalities:", error);
-      }
-    }
-  };
-
-  const handleMunicipalityChange = async (code: string, name: string) => {
-    setSelectedCityCode(code);
-    setFormData((prev) => ({ ...prev, city: name, barangay: "" }));
-    setBarangays([]);
-
-    if (code) {
-      try {
-        const data = await psgcApi.getBarangays(code);
-        setBarangays(data);
-      } catch (error) {
-        console.error("Failed to load barangays:", error);
-      }
-    }
-  };
-
-  function handleCancel() {
-    if (!profile) return;
-    setFormData({
-      email: profile.email || "",
-      birthday: profile.birthday || "",
-      civil_status: profile.civil_status || "single",
-      nationality: profile.nationality || "",
-      suffix: profile.suffix || "",
-      position_id: profile.position?.id || undefined,
-      office_id: profile.office?.id || undefined,
-      date_employed: profile.date_employed || "",
-      residence: profile.residence || "",
-      house_number: profile.house_number || "",
-      block_number: profile.block_number || "",
-      building_floor: profile.building_floor || "",
-      region: profile.region || "",
-      province: profile.province || "",
-      city: profile.city || "",
-      barangay: profile.barangay || "",
-    });
-    setSelectedRegionCode("");
-    setSelectedProvinceCode("");
-    setSelectedCityCode("");
-    setProvinces([]);
-    setMunicipalities([]);
-    setBarangays([]);
-  }
-
-  async function handleSave() {
-    if (!profile) return;
-
-    setIsSaving(true);
-
-    const changes: UpdatePortalProfileData = {};
-
-    if (formData.email !== (profile.email || "")) changes.email = formData.email;
-    if (formData.birthday !== (profile.birthday || "")) changes.birthday = formData.birthday;
-    if (formData.civil_status !== profile.civil_status) changes.civil_status = formData.civil_status;
-    if (formData.nationality !== (profile.nationality || "")) changes.nationality = formData.nationality;
-    if (formData.suffix !== (profile.suffix || "")) changes.suffix = formData.suffix;
-    if (formData.position_id !== (profile.position?.id || undefined)) changes.position_id = formData.position_id;
-    if (formData.office_id !== (profile.office?.id || undefined)) changes.office_id = formData.office_id;
-    if (formData.date_employed !== (profile.date_employed || "")) changes.date_employed = formData.date_employed;
-    if (formData.residence !== (profile.residence || "")) changes.residence = formData.residence;
-    if (formData.house_number !== (profile.house_number || "")) changes.house_number = formData.house_number;
-    if (formData.block_number !== (profile.block_number || "")) changes.block_number = formData.block_number;
-    if (formData.building_floor !== (profile.building_floor || "")) changes.building_floor = formData.building_floor;
-    if (formData.region !== (profile.region || "")) changes.region = formData.region;
-    if (formData.province !== (profile.province || "")) changes.province = formData.province;
-    if (formData.city !== (profile.city || "")) changes.city = formData.city;
-    if (formData.barangay !== (profile.barangay || "")) changes.barangay = formData.barangay;
-
-    if (Object.keys(changes).length === 0) {
-      setIsSaving(false);
-      toast.info("No changes to save");
-      return;
-    }
-
+  const load = useCallback(async () => {
+    setLoading(true); setError("");
     try {
-      const updated = await portalApi.updateProfile(changes);
-      setProfile(updated);
-      toast.success("Profile updated");
-    } catch (error) {
-      console.error("Failed to update profile:", error);
-      toast.error("Failed to update profile");
-    } finally {
-      setIsSaving(false);
-    }
-  }
+      const data = await portalApi.getProfile();
+      setProfile(data); setForm(fromProfile(data));
+      const [officeResult, positionResult, regionResult] = await Promise.allSettled([portalApi.getOffices(), portalApi.getPositions(), psgcApi.getRegions()]);
+      if (officeResult.status === "fulfilled") setOffices(officeResult.value);
+      if (positionResult.status === "fulfilled") setPositions(positionResult.value);
+      if (regionResult.status === "fulfilled") {
+        const list = regionResult.value; setRegions(list); setLocationError(false);
+        const region = list.find((item) => item.name === data.region);
+        if (region) {
+          try {
+            setRegionCode(region.code);
+            const provinceList = await psgcApi.getProvinces(region.code); setProvinces(provinceList);
+            const province = provinceList.find((item) => item.name === data.province);
+            if (province) {
+              setProvinceCode(province.code);
+              const cityList = await psgcApi.getMunicipalities(province.code); setCities(cityList);
+              const city = cityList.find((item) => item.name === data.city);
+              if (city) { setCityCode(city.code); setBarangays(await psgcApi.getBarangays(city.code)); }
+            }
+          } catch { setLocationError(true); }
+        }
+      } else setLocationError(true);
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "We couldn’t load your profile."); }
+    finally { setLoading(false); }
+  }, []);
+  useEffect(() => { void load(); }, [load]);
 
-  if (isLoading) {
-    return <ProfileSkeleton />;
-  }
+  const set = <K extends keyof Form>(key: K, value: Form[K]) => setForm((old) => old ? ({ ...old, [key]: value }) : old);
+  const chooseRegion = async (code: string) => {
+    setRegionCode(code); setProvinceCode(""); setCityCode(""); setProvinces([]); setCities([]); setBarangays([]);
+    setForm((old) => old ? { ...old, region: regions.find((r) => r.code === code)?.name || "", province: "", city: "", barangay: "" } : old);
+    if (code) try { setProvinces(await psgcApi.getProvinces(code)); } catch { toast.error("Couldn’t load provinces. Try selecting the region again."); }
+  };
+  const chooseProvince = async (code: string) => {
+    setProvinceCode(code); setCityCode(""); setCities([]); setBarangays([]);
+    setForm((old) => old ? { ...old, province: provinces.find((p) => p.code === code)?.name || "", city: "", barangay: "" } : old);
+    if (code) try { setCities(await psgcApi.getMunicipalities(code)); } catch { toast.error("Couldn’t load cities. Try selecting the province again."); }
+  };
+  const chooseCity = async (code: string) => {
+    setCityCode(code); setBarangays([]);
+    setForm((old) => old ? { ...old, city: cities.find((c) => c.code === code)?.name || "", barangay: "" } : old);
+    if (code) try { setBarangays(await psgcApi.getBarangays(code)); } catch { toast.error("Couldn’t load barangays. Try selecting the city again."); }
+  };
+  const cancel = () => { if (profile) setForm(fromProfile(profile)); setEditing(false); void load(); };
+  const save = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault(); if (!profile || !form) return;
+    const original = fromProfile(profile); const changes: UpdatePortalProfileData = {};
+    for (const key of Object.keys(form) as (keyof Form)[]) if (form[key] !== original[key]) Object.assign(changes, { [key]: form[key] });
+    if (!Object.keys(changes).length) { setEditing(false); return; }
+    setSaving(true);
+    try { const updated = await portalApi.updateProfile(changes); setProfile(updated); setForm(fromProfile(updated)); setEditing(false); setSaved(true); toast.success("Profile updated"); }
+    catch (cause) { toast.error(cause instanceof Error ? cause.message : "Couldn’t save your profile."); }
+    finally { setSaving(false); }
+  };
 
-  return (
-    <div className="space-y-6">
-      {/* Page Header */}
-      <div>
-        <h1 className="text-2xl font-bold">My Profile</h1>
-        <p className="text-muted-foreground">View and update your personal information</p>
+  if (loading) return <div role="status" aria-label="Loading profile" className="space-y-6"><Skeleton className="h-12 w-64" /><Skeleton className="h-24 w-full" /><Skeleton className="h-80 w-full" /></div>;
+  if (error || !profile || !form) return <><PortalHeading eyebrow="My account" title="My profile" /><PortalStatus kind="error" title="We couldn’t load your profile." action={<Button variant="outline" onClick={() => void load()}>Try again</Button>}>{error}</PortalStatus></>;
+
+  const officeOptions = offices.map((o) => ({ value: String(o.id), label: `${o.abbreviation} · ${o.name}` }));
+  const positionOptions = positions.map((p) => ({ value: String(p.id), label: p.title }));
+  return <>
+    <PortalHeading eyebrow="My account" title="My profile">Keep your contact and employment information up to date.</PortalHeading>
+    <div className="lp-profile-identity"><span className="lp-avatar lp-avatar-large">{profile.initials}</span><div><h2>{profile.full_name}</h2><p>{profile.username} · Municipal employee</p></div><Badge variant="secondary">{profile.is_active ? "Active" : "Inactive"}</Badge></div>
+    {saved && <PortalStatus kind="success" title="Profile changes saved." />}
+    <form className="lp-profile-form" onSubmit={save}>
+      <div className="lp-section-heading"><div><h2>Personal & employment details</h2><p>Name and username are maintained by your administrator.</p></div>{!editing && <Button type="button" variant="outline" onClick={() => { setSaved(false); setEditing(true); }}>Edit profile</Button>}</div>
+      <div className="lp-form-grid">
+        <Field id="profile-email" label="Email address" value={form.email} editing={editing}><Input id="profile-email" type="email" value={form.email} onChange={(e) => set("email", e.target.value)} /></Field>
+        <Field id="profile-suffix" label="Suffix" value={form.suffix} editing={editing}><Input id="profile-suffix" value={form.suffix} onChange={(e) => set("suffix", e.target.value)} placeholder="Jr., Sr., III" /></Field>
+        <Field id="profile-birthday" label="Date of birth" value={dateLabel(form.birthday)} editing={editing}><PortalDatePicker id="profile-birthday" label="Date of birth" value={form.birthday} max={format(new Date(), "yyyy-MM-dd")} onValueChange={(v) => set("birthday", v)} /></Field>
+        <Field id="profile-civil" label="Civil status" value={civilOptions.find((o) => o.value === form.civil_status)?.label} editing={editing}><PortalSelect id="profile-civil" label="Civil status" value={form.civil_status} options={civilOptions} onValueChange={(v) => set("civil_status", v as Form["civil_status"])} /></Field>
+        <Field id="profile-nationality" label="Nationality" value={form.nationality} editing={editing}><Input id="profile-nationality" value={form.nationality} onChange={(e) => set("nationality", e.target.value)} /></Field>
+        <Field id="profile-office" label="Office" value={profile.office?.name} editing={editing}><PortalSelect id="profile-office" label="Office" searchable value={String(form.office_id || "")} options={officeOptions} placeholder={profile.office?.name || "Select office"} disabled={!offices.length} onValueChange={(v) => set("office_id", Number(v))} /></Field>
+        <Field id="profile-position" label="Position" value={profile.position?.title} editing={editing}><PortalSelect id="profile-position" label="Position" searchable value={String(form.position_id || "")} options={positionOptions} placeholder={profile.position?.title || "Select position"} disabled={!positions.length} onValueChange={(v) => set("position_id", Number(v))} /></Field>
+        <Field id="profile-employed" label="Employment start date" value={dateLabel(form.date_employed)} editing={editing}><PortalDatePicker id="profile-employed" label="Employment start date" value={form.date_employed} max={format(new Date(), "yyyy-MM-dd")} onValueChange={(v) => set("date_employed", v)} /></Field>
       </div>
-
-      {/* Personal Information */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <User className="h-5 w-5" />
-            Personal Information
-          </CardTitle>
-          <CardDescription>Basic employee details</CardDescription>
-        </CardHeader>
-        <CardContent className="grid gap-6 md:grid-cols-2">
-          <ProfileField label="First Name" value={profile?.first_name} />
-          <ProfileField label="Middle Name" value={profile?.middle_name} />
-          <ProfileField label="Last Name" value={profile?.last_name} />
-          <div className="space-y-2">
-            <Label htmlFor="suffix">Suffix</Label>
-            <Input
-              id="suffix"
-              value={formData.suffix}
-              onChange={(e) => setFormData((prev) => ({ ...prev, suffix: e.target.value }))}
-              placeholder="Jr., Sr., III, etc."
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="birthday">Birthday</Label>
-            <Input
-              id="birthday"
-              type="date"
-              value={formData.birthday}
-              onChange={(e) => setFormData((prev) => ({ ...prev, birthday: e.target.value }))}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="civil_status">Civil Status</Label>
-            <Select
-              value={formData.civil_status}
-              onValueChange={(value) =>
-                setFormData((prev) => ({ ...prev, civil_status: value as Employee["civil_status"] }))
-              }
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="single">Single</SelectItem>
-                <SelectItem value="married">Married</SelectItem>
-                <SelectItem value="widowed">Widowed</SelectItem>
-                <SelectItem value="separated">Separated</SelectItem>
-                <SelectItem value="divorced">Divorced</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="nationality">Nationality</Label>
-            <Input
-              id="nationality"
-              value={formData.nationality}
-              onChange={(e) => setFormData((prev) => ({ ...prev, nationality: e.target.value }))}
-            />
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Account Credentials */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Lock className="h-5 w-5" />
-            Account Credentials
-          </CardTitle>
-          <CardDescription>Login credentials for the employee</CardDescription>
-        </CardHeader>
-        <CardContent className="grid gap-6 md:grid-cols-2">
-          <div className="space-y-2">
-            <Label htmlFor="email">Email Address</Label>
-            <Input
-              id="email"
-              type="email"
-              value={formData.email}
-              onChange={(e) => setFormData((prev) => ({ ...prev, email: e.target.value }))}
-              placeholder="employee@lgu.gov.ph"
-            />
-          </div>
-          <ProfileField label="Username" value={profile?.username} mono />
-          <div className="md:col-span-2">
-            <div className="bg-muted/50 border rounded-lg p-3 flex items-start gap-2">
-              <Info className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
-              <p className="text-sm text-muted-foreground">
-                Username and default password are managed by administrators.
-              </p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Employment Information */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Briefcase className="h-5 w-5" />
-            Employment Information
-          </CardTitle>
-          <CardDescription>Office assignment and position details</CardDescription>
-        </CardHeader>
-        <CardContent className="grid gap-6 md:grid-cols-2">
-          <div className="space-y-2">
-            <Label>Office</Label>
-            <Popover open={officeOpen} onOpenChange={setOfficeOpen}>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  role="combobox"
-                  aria-expanded={officeOpen}
-                  className="w-full justify-between font-normal"
-                >
-                  {formData.office_id
-                    ? (() => { const o = offices.find((o) => o.id === formData.office_id); return o ? `${o.abbreviation} - ${o.name}` : "Select office"; })()
-                    : "Select office"}
-                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-                <Command filter={(value, search) => value.toLowerCase().includes(search.toLowerCase()) ? 1 : 0}>
-                  <CommandInput placeholder="Search office..." />
-                  <CommandList>
-                    <CommandEmpty>No office found.</CommandEmpty>
-                    <CommandGroup>
-                      {offices.map((o) => (
-                        <CommandItem
-                          key={o.id}
-                          value={`${o.abbreviation} - ${o.name}`}
-                          onSelect={() => {
-                            setFormData((prev) => ({ ...prev, office_id: o.id }));
-                            setOfficeOpen(false);
-                          }}
-                        >
-                          <Check
-                            className={`mr-2 h-4 w-4 ${
-                              formData.office_id === o.id ? "opacity-100" : "opacity-0"
-                            }`}
-                          />
-                          {o.abbreviation} - {o.name}
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                  </CommandList>
-                </Command>
-              </PopoverContent>
-            </Popover>
-          </div>
-          <div className="space-y-2">
-            <Label>Position</Label>
-            <Popover open={positionOpen} onOpenChange={setPositionOpen}>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  role="combobox"
-                  aria-expanded={positionOpen}
-                  className="w-full justify-between font-normal"
-                >
-                  {formData.position_id
-                    ? positions.find((p) => p.id === formData.position_id)?.title
-                    : "Select position"}
-                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-                <Command>
-                  <CommandInput placeholder="Search position..." />
-                  <CommandList>
-                    <CommandEmpty>No position found.</CommandEmpty>
-                    <CommandGroup>
-                      {positions.map((p) => (
-                        <CommandItem
-                          key={p.id}
-                          value={p.title}
-                          onSelect={() => {
-                            setFormData((prev) => ({ ...prev, position_id: p.id }));
-                            setPositionOpen(false);
-                          }}
-                        >
-                          <Check
-                            className={`mr-2 h-4 w-4 ${
-                              formData.position_id === p.id ? "opacity-100" : "opacity-0"
-                            }`}
-                          />
-                          {p.title}
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                  </CommandList>
-                </Command>
-              </PopoverContent>
-            </Popover>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="date_employed">Date Employed</Label>
-            <Input
-              id="date_employed"
-              type="date"
-              value={formData.date_employed}
-              onChange={(e) => setFormData((prev) => ({ ...prev, date_employed: e.target.value }))}
-            />
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Address */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <MapPin className="h-5 w-5" />
-            Address
-          </CardTitle>
-          <CardDescription>Employee&apos;s residential address</CardDescription>
-        </CardHeader>
-        <CardContent className="grid gap-6 md:grid-cols-2">
-          {/* Region */}
-          <div className="space-y-2">
-            <Label>Region</Label>
-            <Popover open={regionOpen} onOpenChange={setRegionOpen}>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  role="combobox"
-                  aria-expanded={regionOpen}
-                  className="w-full justify-between font-normal"
-                >
-                  {formData.region || "Select region"}
-                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-                <Command>
-                  <CommandInput placeholder="Search region..." />
-                  <CommandList>
-                    <CommandEmpty>No region found.</CommandEmpty>
-                    <CommandGroup>
-                      {regions.map((r) => (
-                        <CommandItem
-                          key={r.code}
-                          value={r.name}
-                          onSelect={() => {
-                            handleRegionChange(r.code, r.name);
-                            setRegionOpen(false);
-                          }}
-                        >
-                          <Check
-                            className={`mr-2 h-4 w-4 ${
-                              selectedRegionCode === r.code ? "opacity-100" : "opacity-0"
-                            }`}
-                          />
-                          {r.name}
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                  </CommandList>
-                </Command>
-              </PopoverContent>
-            </Popover>
-          </div>
-
-          {/* Province */}
-          <div className="space-y-2">
-            <Label>Province</Label>
-            <Popover open={provinceOpen} onOpenChange={setProvinceOpen}>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  role="combobox"
-                  aria-expanded={provinceOpen}
-                  className="w-full justify-between font-normal"
-                  disabled={!selectedRegionCode}
-                >
-                  {formData.province || "Select province"}
-                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-                <Command>
-                  <CommandInput placeholder="Search province..." />
-                  <CommandList>
-                    <CommandEmpty>No province found.</CommandEmpty>
-                    <CommandGroup>
-                      {provinces.map((p) => (
-                        <CommandItem
-                          key={p.code}
-                          value={p.name}
-                          onSelect={() => {
-                            handleProvinceChange(p.code, p.name);
-                            setProvinceOpen(false);
-                          }}
-                        >
-                          <Check
-                            className={`mr-2 h-4 w-4 ${
-                              selectedProvinceCode === p.code ? "opacity-100" : "opacity-0"
-                            }`}
-                          />
-                          {p.name}
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                  </CommandList>
-                </Command>
-              </PopoverContent>
-            </Popover>
-          </div>
-
-          {/* City/Municipality */}
-          <div className="space-y-2">
-            <Label>City/Municipality</Label>
-            <Popover open={municipalityOpen} onOpenChange={setMunicipalityOpen}>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  role="combobox"
-                  aria-expanded={municipalityOpen}
-                  className="w-full justify-between font-normal"
-                  disabled={!selectedProvinceCode}
-                >
-                  {formData.city || "Select city/municipality"}
-                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-                <Command>
-                  <CommandInput placeholder="Search city/municipality..." />
-                  <CommandList>
-                    <CommandEmpty>No city/municipality found.</CommandEmpty>
-                    <CommandGroup>
-                      {municipalities.map((m) => (
-                        <CommandItem
-                          key={m.code}
-                          value={m.name}
-                          onSelect={() => {
-                            handleMunicipalityChange(m.code, m.name);
-                            setMunicipalityOpen(false);
-                          }}
-                        >
-                          <Check
-                            className={`mr-2 h-4 w-4 ${
-                              selectedCityCode === m.code ? "opacity-100" : "opacity-0"
-                            }`}
-                          />
-                          {m.name}
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                  </CommandList>
-                </Command>
-              </PopoverContent>
-            </Popover>
-          </div>
-
-          {/* Barangay */}
-          <div className="space-y-2">
-            <Label>Barangay</Label>
-            <Popover open={barangayOpen} onOpenChange={setBarangayOpen}>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  role="combobox"
-                  aria-expanded={barangayOpen}
-                  className="w-full justify-between font-normal"
-                  disabled={!selectedCityCode}
-                >
-                  {formData.barangay || "Select barangay"}
-                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-                <Command>
-                  <CommandInput placeholder="Search barangay..." />
-                  <CommandList>
-                    <CommandEmpty>No barangay found.</CommandEmpty>
-                    <CommandGroup>
-                      {barangays.map((b) => (
-                        <CommandItem
-                          key={b.code}
-                          value={b.name}
-                          onSelect={() => {
-                            setFormData((prev) => ({ ...prev, barangay: b.name }));
-                            setBarangayOpen(false);
-                          }}
-                        >
-                          <Check
-                            className={`mr-2 h-4 w-4 ${
-                              formData.barangay === b.name ? "opacity-100" : "opacity-0"
-                            }`}
-                          />
-                          {b.name}
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                  </CommandList>
-                </Command>
-              </PopoverContent>
-            </Popover>
-          </div>
-
-          {/* House Number */}
-          <div className="space-y-2">
-            <Label htmlFor="house_number">House Number</Label>
-            <Input
-              id="house_number"
-              value={formData.house_number}
-              onChange={(e) => setFormData((prev) => ({ ...prev, house_number: e.target.value }))}
-              placeholder="e.g., 123"
-            />
-          </div>
-
-          {/* Block Number */}
-          <div className="space-y-2">
-            <Label htmlFor="block_number">Block Number</Label>
-            <Input
-              id="block_number"
-              value={formData.block_number}
-              onChange={(e) => setFormData((prev) => ({ ...prev, block_number: e.target.value }))}
-              placeholder="e.g., Block 5"
-            />
-          </div>
-
-          {/* Building/Floor */}
-          <div className="space-y-2">
-            <Label htmlFor="building_floor">Building/Floor</Label>
-            <Input
-              id="building_floor"
-              value={formData.building_floor}
-              onChange={(e) => setFormData((prev) => ({ ...prev, building_floor: e.target.value }))}
-              placeholder="e.g., 3rd Floor, Unit 201"
-            />
-          </div>
-
-          {/* Street Address */}
-          <div className="space-y-2 md:col-span-2">
-            <Label htmlFor="residence">Street Address</Label>
-            <Textarea
-              id="residence"
-              value={formData.residence}
-              onChange={(e) => setFormData((prev) => ({ ...prev, residence: e.target.value }))}
-              rows={2}
-              placeholder="Street name, subdivision, etc."
-            />
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Save/Cancel */}
-      <div className="flex justify-end gap-3">
-        <Button variant="outline" onClick={handleCancel} disabled={isSaving}>
-          <X className="mr-2 h-4 w-4" />
-          Cancel
-        </Button>
-        <Button onClick={handleSave} disabled={isSaving}>
-          {isSaving ? (
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          ) : (
-            <Save className="mr-2 h-4 w-4" />
-          )}
-          Save
-        </Button>
+      <div className="lp-section-heading lp-profile-subheading"><div><h2>Residential address</h2><p>Choose your location, then add your street details.</p></div></div>
+      {editing && locationError && <PortalStatus kind="error" title="Address choices are unavailable.">Your saved address is still shown. Reload the page to try again.</PortalStatus>}
+      <div className="lp-form-grid">
+        <Field id="profile-region" label="Region" value={form.region} editing={editing}><PortalSelect id="profile-region" label="Region" searchable value={regionCode} options={placeOptions(regions)} placeholder={form.region || "Select region"} disabled={locationError} onValueChange={(v) => void chooseRegion(v)} /></Field>
+        <Field id="profile-province" label="Province" value={form.province} editing={editing}><PortalSelect id="profile-province" label="Province" searchable value={provinceCode} options={placeOptions(provinces)} placeholder={form.province || "Select province"} disabled={!regionCode || locationError} onValueChange={(v) => void chooseProvince(v)} /></Field>
+        <Field id="profile-city" label="City or municipality" value={form.city} editing={editing}><PortalSelect id="profile-city" label="City or municipality" searchable value={cityCode} options={placeOptions(cities)} placeholder={form.city || "Select city or municipality"} disabled={!provinceCode || locationError} onValueChange={(v) => void chooseCity(v)} /></Field>
+        <Field id="profile-barangay" label="Barangay" value={form.barangay} editing={editing}><PortalSelect id="profile-barangay" label="Barangay" searchable value={barangays.find((b) => b.name === form.barangay)?.code || ""} options={placeOptions(barangays)} placeholder={form.barangay || "Select barangay"} disabled={!cityCode || locationError} onValueChange={(v) => set("barangay", barangays.find((b) => b.code === v)?.name || "")} /></Field>
+        <Field id="profile-house" label="House number" value={form.house_number} editing={editing}><Input id="profile-house" value={form.house_number} onChange={(e) => set("house_number", e.target.value)} /></Field>
+        <Field id="profile-block" label="Block number" value={form.block_number} editing={editing}><Input id="profile-block" value={form.block_number} onChange={(e) => set("block_number", e.target.value)} /></Field>
+        <Field id="profile-building" label="Building or floor" value={form.building_floor} editing={editing}><Input id="profile-building" value={form.building_floor} onChange={(e) => set("building_floor", e.target.value)} /></Field>
+        <Field id="profile-street" label="Street address" value={form.residence} editing={editing}><Textarea id="profile-street" value={form.residence} onChange={(e) => set("residence", e.target.value)} rows={2} /></Field>
       </div>
-    </div>
-  );
+      {editing && <div className="lp-form-actions"><Button type="button" variant="outline" disabled={saving} onClick={cancel}>Cancel</Button><Button type="submit" disabled={saving}>{saving && <Loader2 className="size-4 animate-spin" />}Save changes</Button></div>}
+    </form>
+  </>;
 }
