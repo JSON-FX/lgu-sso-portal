@@ -1,349 +1,56 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Users,
-  AppWindow,
-  Activity,
-  UserPlus,
-  Plus,
-  ArrowRight,
-  LogIn,
-  LogOut,
-  Key,
-  Shield,
-  Clock,
-} from "lucide-react";
-import { api } from "@/lib/api";
-import { AuditLog } from "@/types";
 import { formatDistanceToNow } from "date-fns";
+import { ArrowRight, KeyRound, Plus, ShieldCheck, Users } from "lucide-react";
+import { PortalStatus } from "@/components/portal/design";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { api } from "@/lib/api";
+import type { AuditLog } from "@/types";
 
-interface DashboardStats {
-  totalEmployees: number;
-  activeEmployees: number;
-  totalApplications: number;
-  activeApplications: number;
-  recentLogins: number;
-}
-
-const actionIcons: Record<string, typeof LogIn> = {
-  login: LogIn,
-  logout: LogOut,
-  logout_all: LogOut,
-  token_refresh: Key,
-  token_validate: Shield,
-  app_authorize: Shield,
-};
-
-const actionLabels: Record<string, string> = {
-  login: "Logged in",
-  logout: "Logged out",
-  logout_all: "Logged out all sessions",
-  token_refresh: "Token refreshed",
-  token_validate: "Token validated",
-  app_authorize: "App authorized",
+type Stats = Awaited<ReturnType<typeof api.stats.getDashboardStats>>;
+const actionLabel: Record<AuditLog["action"], string> = {
+  login: "Signed in", logout: "Signed out", logout_all: "Signed out everywhere",
+  token_refresh: "Session refreshed", token_validate: "Session validated", app_authorize: "Application authorized",
 };
 
 export default function DashboardPage() {
-  const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [recentActivity, setRecentActivity] = useState<AuditLog[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    async function loadData() {
-      try {
-        const [statsData, activityData] = await Promise.all([
-          api.stats.getDashboardStats(),
-          api.audit.list({ per_page: 5 }),
-        ]);
-        setStats(statsData);
-        setRecentActivity(activityData.data);
-      } catch (error) {
-        console.error("Failed to load dashboard data:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    }
-
-    loadData();
+  const [stats, setStats] = useState<Stats | null>(null);
+  const [activity, setActivity] = useState<AuditLog[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [statsError, setStatsError] = useState(false);
+  const [activityError, setActivityError] = useState(false);
+  const [selected, setSelected] = useState<AuditLog | null>(null);
+  const load = useCallback(async () => {
+    setLoading(true); setStatsError(false); setActivityError(false);
+    const [counts, logs] = await Promise.allSettled([api.stats.getDashboardStats(), api.audit.list({ per_page: 5 })]);
+    if (counts.status === "fulfilled") setStats(counts.value); else { setStats(null); setStatsError(true); }
+    if (logs.status === "fulfilled") setActivity(logs.value.data); else { setActivity([]); setActivityError(true); }
+    setLoading(false);
   }, []);
+  useEffect(() => { void Promise.resolve().then(load); }, [load]);
 
-  return (
-    <div className="space-y-8">
-      {/* Page Header */}
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-          <p className="text-muted-foreground">
-            Overview of your SSO system
-          </p>
-        </div>
-        <div className="flex gap-3">
-          <Button asChild variant="outline">
-            <Link href="/employees/new">
-              <UserPlus className="mr-2 h-4 w-4" />
-              Add Employee
-            </Link>
-          </Button>
-          <Button asChild>
-            <Link href="/applications/new">
-              <Plus className="mr-2 h-4 w-4" />
-              New Application
-            </Link>
-          </Button>
-        </div>
-      </div>
-
-      {/* Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {/* Total Employees */}
-        <Card className="relative overflow-hidden">
-          <div className="absolute right-0 top-0 h-24 w-24 translate-x-8 -translate-y-4">
-            <div className="h-full w-full rounded-full bg-primary/10" />
-          </div>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Total Employees
-            </CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <Skeleton className="h-8 w-20" />
-            ) : (
-              <>
-                <div className="text-3xl font-bold">{stats?.totalEmployees ?? "—"}</div>
-                <p className="text-xs text-muted-foreground">
-                  <span className="text-green-600 font-medium">
-                    {stats?.activeEmployees} active
-                  </span>
-                  {" · "}
-                  {(stats?.totalEmployees ?? 0) - (stats?.activeEmployees ?? 0)} inactive
-                </p>
-              </>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Total Applications */}
-        <Card className="relative overflow-hidden">
-          <div className="absolute right-0 top-0 h-24 w-24 translate-x-8 -translate-y-4">
-            <div className="h-full w-full rounded-full bg-accent/30" />
-          </div>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Applications
-            </CardTitle>
-            <AppWindow className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <Skeleton className="h-8 w-20" />
-            ) : (
-              <>
-                <div className="text-3xl font-bold">{stats?.totalApplications ?? "—"}</div>
-                <p className="text-xs text-muted-foreground">
-                  <span className="text-green-600 font-medium">
-                    {stats?.activeApplications} active
-                  </span>
-                  {" · "}
-                  {(stats?.totalApplications ?? 0) - (stats?.activeApplications ?? 0)} inactive
-                </p>
-              </>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Active Sessions */}
-        <Card className="relative overflow-hidden">
-          <div className="absolute right-0 top-0 h-24 w-24 translate-x-8 -translate-y-4">
-            <div className="h-full w-full rounded-full bg-green-500/10" />
-          </div>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Recent Logins
-            </CardTitle>
-            <Activity className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <Skeleton className="h-8 w-20" />
-            ) : (
-              <>
-                <div className="text-3xl font-bold">{stats?.recentLogins ?? "—"}</div>
-                <p className="text-xs text-muted-foreground">
-                  In the last 7 days
-                </p>
-              </>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* System Status */}
-        <Card className="relative overflow-hidden">
-          <div className="absolute right-0 top-0 h-24 w-24 translate-x-8 -translate-y-4">
-            <div className="h-full w-full rounded-full bg-blue-500/10" />
-          </div>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              System Status
-            </CardTitle>
-            <Shield className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center gap-2">
-              <span className="relative flex h-2.5 w-2.5">
-                {stats && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>}
-                <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${stats ? "bg-green-500" : "bg-red-500"}`}></span>
-              </span>
-              <span className={`text-xl font-semibold ${stats ? "text-green-600" : "text-red-600"}`}>{stats ? "Connected" : "Unavailable"}</span>
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {stats ? "SSO API responding" : "Could not load SSO data"}
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Quick Actions & Recent Activity */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Quick Actions */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Quick Actions</CardTitle>
-            <CardDescription>Common tasks and shortcuts</CardDescription>
-          </CardHeader>
-          <CardContent className="grid gap-3">
-            <Link
-              href="/employees"
-              className="flex items-center justify-between rounded-lg border p-4 transition-colors hover:bg-secondary"
-            >
-              <div className="flex items-center gap-4">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-                  <Users className="h-5 w-5 text-primary" />
-                </div>
-                <div>
-                  <p className="font-medium">Manage Employees</p>
-                  <p className="text-sm text-muted-foreground">
-                    View, add, or edit employee records
-                  </p>
-                </div>
-              </div>
-              <ArrowRight className="h-5 w-5 text-muted-foreground" />
-            </Link>
-
-            <Link
-              href="/applications"
-              className="flex items-center justify-between rounded-lg border p-4 transition-colors hover:bg-secondary"
-            >
-              <div className="flex items-center gap-4">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-accent/30">
-                  <AppWindow className="h-5 w-5 text-accent-foreground" />
-                </div>
-                <div>
-                  <p className="font-medium">Manage Applications</p>
-                  <p className="text-sm text-muted-foreground">
-                    Configure SSO client applications
-                  </p>
-                </div>
-              </div>
-              <ArrowRight className="h-5 w-5 text-muted-foreground" />
-            </Link>
-
-            <Link
-              href="/audit"
-              className="flex items-center justify-between rounded-lg border p-4 transition-colors hover:bg-secondary"
-            >
-              <div className="flex items-center gap-4">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-orange-500/10">
-                  <Activity className="h-5 w-5 text-orange-600" />
-                </div>
-                <div>
-                  <p className="font-medium">View Audit Logs</p>
-                  <p className="text-sm text-muted-foreground">
-                    Monitor authentication activity
-                  </p>
-                </div>
-              </div>
-              <ArrowRight className="h-5 w-5 text-muted-foreground" />
-            </Link>
-          </CardContent>
-        </Card>
-
-        {/* Recent Activity */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <div>
-              <CardTitle>Recent Activity</CardTitle>
-              <CardDescription>Latest authentication events</CardDescription>
-            </div>
-            <Button variant="ghost" size="sm" asChild>
-              <Link href="/audit">
-                View all
-                <ArrowRight className="ml-1 h-4 w-4" />
-              </Link>
-            </Button>
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <div className="space-y-4">
-                {[1, 2, 3, 4, 5].map((i) => (
-                  <div key={i} className="flex items-center gap-4">
-                    <Skeleton className="h-10 w-10 rounded-full" />
-                    <div className="flex-1 space-y-2">
-                      <Skeleton className="h-4 w-3/4" />
-                      <Skeleton className="h-3 w-1/2" />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {recentActivity.map((log) => {
-                  const Icon = actionIcons[log.action] || Activity;
-                  return (
-                    <div
-                      key={log.id}
-                      className="flex items-start gap-4 rounded-lg p-2 transition-colors hover:bg-muted/50"
-                    >
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted">
-                        <Icon className="h-4 w-4 text-muted-foreground" />
-                      </div>
-                      <div className="flex-1 space-y-1">
-                        <div className="flex items-center gap-2">
-                          <p className="text-sm font-medium">
-                            {log.employee?.full_name || "Unknown"}
-                          </p>
-                          <Badge variant="secondary" className="text-[10px]">
-                            {actionLabels[log.action]}
-                          </Badge>
-                        </div>
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <Clock className="h-3 w-3" />
-                          {formatDistanceToNow(new Date(log.created_at), {
-                            addSuffix: true,
-                          })}
-                          {log.application && (
-                            <>
-                              <span>·</span>
-                              <span>{log.application.name}</span>
-                            </>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+  return <div className="lp-admin">
+    <header className="lp-admin-heading"><div><p className="lp-admin-eyebrow">Administration</p><h1>A clear view of access.</h1><p className="lp-admin-description">Manage the people and applications connected to LGU identity.</p></div></header>
+    {loading ? <div role="status" aria-label="Loading administration overview" className="lp-admin-summary">{[1, 2, 3].map((item) => <Skeleton key={item} className="h-20 flex-1" />)}</div> : statsError ? <PortalStatus kind="error" title="Overview numbers are unavailable." action={<Button variant="outline" onClick={() => void load()}>Try again</Button>}>Employee and application records are still available from their pages.</PortalStatus> : <div className="lp-admin-summary">
+      <div><Users aria-hidden="true" /><strong>{stats?.totalEmployees.toLocaleString()}</strong><span>employees · {stats?.activeEmployees} active</span></div>
+      <div><KeyRound aria-hidden="true" /><strong>{stats?.totalApplications.toLocaleString()}</strong><span>registered applications · {stats?.activeApplications} active</span></div>
+      <div><ShieldCheck aria-hidden="true" /><strong>{stats?.recentLogins.toLocaleString()}</strong><span>sign-ins in the last 7 days</span></div>
+    </div>}
+    <div className="lp-admin-quick">
+      <Button variant="outline" asChild><Link href="/employees/new"><Plus aria-hidden="true" />Add employee</Link></Button>
+      <Button variant="outline" asChild><Link href="/applications/new"><Plus aria-hidden="true" />Register application</Link></Button>
+      <Button variant="ghost" asChild><Link href="/employees">Review employee access<ArrowRight aria-hidden="true" /></Link></Button>
     </div>
-  );
+    <section className="lp-admin-section" aria-labelledby="recent-activity"><div className="lp-admin-section-heading"><h2 id="recent-activity">Recent activity</h2><p>Latest identity and access events.</p></div>
+      {loading ? <div role="status" aria-label="Loading recent activity" className="space-y-3">{[1, 2, 3].map((item) => <Skeleton key={item} className="h-16 w-full" />)}</div> : activityError ? <PortalStatus kind="error" title="Recent activity is unavailable." action={<Button variant="outline" onClick={() => void load()}>Try again</Button>} /> : activity.length ? <div className="lp-admin-table"><Table><TableHeader><TableRow><TableHead>Time</TableHead><TableHead>Event</TableHead><TableHead>Actor</TableHead><TableHead className="text-right">Details</TableHead></TableRow></TableHeader><TableBody>{activity.map((log) => <TableRow key={log.id}><TableCell><time dateTime={log.created_at}>{formatDistanceToNow(new Date(log.created_at), { addSuffix: true })}</time></TableCell><TableCell><strong>{actionLabel[log.action]}</strong><small>{log.application?.name || "LGU Portal"}</small></TableCell><TableCell>{log.employee?.full_name || "System"}</TableCell><TableCell className="text-right"><Button variant="ghost" size="sm" onClick={() => setSelected(log)} aria-label={`View ${actionLabel[log.action].toLowerCase()} event`}>View<ArrowRight aria-hidden="true" /></Button></TableCell></TableRow>)}</TableBody></Table></div> : <PortalStatus kind="empty" title="No recent activity.">Authentication events will appear here as they occur.</PortalStatus>}
+      <Button variant="ghost" asChild><Link href="/audit">Open audit log<ArrowRight aria-hidden="true" /></Link></Button>
+    </section>
+    <div className="lp-admin-note"><ShieldCheck aria-hidden="true" /><p><strong>Access follows the employee.</strong><br />Deactivating an employee ends their sessions. Removing an application grant ends access to that application.</p></div>
+    <Dialog open={!!selected} onOpenChange={(open) => !open && setSelected(null)}><DialogContent><DialogHeader><DialogTitle>{selected ? actionLabel[selected.action] : "Event"}</DialogTitle><DialogDescription>Recorded authentication activity</DialogDescription></DialogHeader>{selected && <dl className="lp-admin-details"><dt>Employee</dt><dd>{selected.employee?.full_name || "System"}</dd><dt>Application</dt><dd>{selected.application?.name || "LGU Portal"}</dd><dt>Time</dt><dd>{new Date(selected.created_at).toLocaleString()}</dd><dt>IP address</dt><dd>{selected.ip_address || "Unavailable"}</dd></dl>}</DialogContent></Dialog>
+  </div>;
 }
