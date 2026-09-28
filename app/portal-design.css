@@ -165,6 +165,10 @@
 .lp-admin-grant-form { display: grid; grid-template-columns: minmax(180px,1fr) minmax(180px,1fr) auto; gap: 20px; align-items: end; max-width: 800px; }
 .lp-admin-grant-form > button { min-height: 44px; }
 .lp-admin-role { max-width: 220px; }
+.lp-admin-credential { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; }
+.lp-admin-credential > div { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; min-width: 0; }
+.lp-admin-credential code, .lp-admin-secret-value { overflow-wrap: anywhere; font-size: 15px; }
+.lp-admin-credential p { margin: 0; }
 .lp-admin-empty { padding: 44px 12px; color: var(--muted-foreground); text-align: center; }
 .lp-admin-pagination { display: flex; justify-content: space-between; align-items: center; gap: 20px; padding: 16px 0; color: var(--muted-foreground); font-size: 14px; }
 .lp-admin-pagination > div { display: flex; align-items: center; gap: 12px; }
@@ -184,6 +188,7 @@
   .lp-admin-fields { grid-template-columns: 1fr; gap: 20px; }
   .lp-admin-form-actions { flex-wrap: wrap; }
   .lp-admin-grant-form { grid-template-columns: 1fr; }
+  .lp-admin-credential { flex-direction: column; }
   .lp-admin-heading { align-items: flex-start; flex-direction: column; }
   .lp-admin-summary { flex-direction: column; gap: 20px; }
   .lp-admin-event { align-items: flex-start; }
