@@ -146,6 +146,22 @@
 .lp-admin-filter { width: 170px; }
 .lp-admin-toolbar > .lp-admin-hint { margin-left: auto; color: var(--muted-foreground); font-size: 13px; }
 .lp-admin-row-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.lp-admin-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px 32px; max-width: 850px; }
+.lp-admin-field { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.lp-admin-field > label { font-size: 14px; font-weight: 500; }
+.lp-admin-field input, .lp-admin-field textarea, .lp-admin-field button[role="combobox"] { min-height: 44px; }
+.lp-admin-field > p { margin: 0; }
+.lp-admin-form { max-width: 920px; }
+.lp-admin-form-actions { display: flex; justify-content: flex-end; gap: 12px; padding-top: 24px; border-top: 1px solid var(--border); }
+.lp-admin-back { margin: -4px 0 20px -12px; }
+.lp-admin-hint { color: var(--muted-foreground); font-size: 13px; line-height: 1.5; }
+.lp-admin-error { color: var(--destructive); font-size: 13px; }
+.lp-admin-span { grid-column: 1 / -1; }
+.lp-admin-credentials { display: grid; gap: 16px; margin: 12px 0; }
+.lp-admin-credentials div { display: grid; gap: 4px; }
+.lp-admin-credentials dt { color: var(--muted-foreground); font-size: 13px; }
+.lp-admin-credentials dd { margin: 0; overflow-wrap: anywhere; }
+.lp-admin-credentials code { font-size: 15px; }
 .lp-admin-empty { padding: 44px 12px; color: var(--muted-foreground); text-align: center; }
 .lp-admin-pagination { display: flex; justify-content: space-between; align-items: center; gap: 20px; padding: 16px 0; color: var(--muted-foreground); font-size: 14px; }
 .lp-admin-pagination > div { display: flex; align-items: center; gap: 12px; }
@@ -162,6 +178,8 @@
   .lp-auth-form { padding: 40px 28px 24px; }
 }
 @media (max-width: 720px) {
+  .lp-admin-fields { grid-template-columns: 1fr; gap: 20px; }
+  .lp-admin-form-actions { flex-wrap: wrap; }
   .lp-admin-heading { align-items: flex-start; flex-direction: column; }
   .lp-admin-summary { flex-direction: column; gap: 20px; }
   .lp-admin-event { align-items: flex-start; }
