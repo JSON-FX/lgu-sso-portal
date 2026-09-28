@@ -3,6 +3,8 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
+import { PortalStatus } from "@/components/portal/design";
+import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 
 export default function SetupLayout({
@@ -10,7 +12,7 @@ export default function SetupLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { isAuthenticated, isLoading, mustChangePassword, isSuperAdmin, checkAuth } = useAuth();
+  const { isAuthenticated, isLoading, mustChangePassword, setupCompleted, authError, checkAuth } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
@@ -18,7 +20,7 @@ export default function SetupLayout({
   }, [checkAuth]);
 
   useEffect(() => {
-    if (isLoading) return;
+    if (isLoading || authError) return;
 
     if (!isAuthenticated) {
       const params = new URLSearchParams(window.location.search);
@@ -34,7 +36,7 @@ export default function SetupLayout({
       return;
     }
 
-    if (!mustChangePassword) {
+    if (!mustChangePassword && !setupCompleted) {
       const params = new URLSearchParams(window.location.search);
       const clientId = params.get("client_id");
       const redirectUri = params.get("redirect_uri");
@@ -43,10 +45,10 @@ export default function SetupLayout({
       if (clientId && redirectUri && state) {
         window.location.href = `/sso/login?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${encodeURIComponent(state)}`;
       } else {
-        router.push(isSuperAdmin ? "/dashboard" : "/portal");
+        router.push("/portal/applications");
       }
     }
-  }, [isLoading, isAuthenticated, mustChangePassword, isSuperAdmin, router]);
+  }, [isLoading, isAuthenticated, mustChangePassword, setupCompleted, authError, router]);
 
   if (isLoading) {
     return (
@@ -59,7 +61,15 @@ export default function SetupLayout({
     );
   }
 
-  if (!isAuthenticated || !mustChangePassword) {
+  if (authError) {
+    return <div className="mx-auto flex min-h-screen max-w-lg items-center px-6">
+      <PortalStatus kind="error" title="Sign-in service is temporarily unavailable." action={<Button variant="outline" onClick={() => void checkAuth()}>Try again</Button>}>
+        Your account setup can continue when the service is available.
+      </PortalStatus>
+    </div>;
+  }
+
+  if (!isAuthenticated || (!mustChangePassword && !setupCompleted)) {
     return null;
   }
 

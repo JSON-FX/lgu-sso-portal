@@ -10,6 +10,7 @@ interface AuthState {
   isAuthenticated: boolean;
   isSuperAdmin: boolean;
   mustChangePassword: boolean;
+  setupCompleted: boolean;
   login: (username: string, password: string) => Promise<void>;
   logout: (everywhere?: boolean) => Promise<void>;
   authError: string | null;
@@ -30,6 +31,7 @@ export const useAuth = create<AuthState>()(
       isAuthenticated: false,
       isSuperAdmin: false,
       mustChangePassword: false,
+      setupCompleted: false,
 
       login: async (username: string, password: string) => {
         await api.auth.login({ username, password });
@@ -45,6 +47,7 @@ export const useAuth = create<AuthState>()(
           isAuthenticated: true,
           isSuperAdmin,
           mustChangePassword: user.must_change_password,
+          setupCompleted: false,
           isLoading: false,
         });
       },
@@ -56,7 +59,7 @@ export const useAuth = create<AuthState>()(
         } catch (error) {
           if (!(error instanceof ApiError) || error.status !== 401) throw error;
         }
-        set({ user: null, isAuthenticated: false, isSuperAdmin: false, mustChangePassword: false, isLoading: false, authError: null });
+        set({ user: null, isAuthenticated: false, isSuperAdmin: false, mustChangePassword: false, setupCompleted: false, isLoading: false, authError: null });
       },
 
       checkAuth: async () => {
@@ -73,12 +76,13 @@ export const useAuth = create<AuthState>()(
             isAuthenticated: true,
             isSuperAdmin: checkIsSuperAdmin(user),
             mustChangePassword: user.must_change_password,
+            setupCompleted: false,
             isLoading: false,
           });
         } catch (error) {
           set({
             user: null, isLoading: false, isAuthenticated: false,
-            isSuperAdmin: false, mustChangePassword: false,
+            isSuperAdmin: false, mustChangePassword: false, setupCompleted: false,
             authError: error instanceof ApiError && error.status === 401 ? null : "Sign-in service is temporarily unavailable. Please try again.",
           });
         }
@@ -90,7 +94,7 @@ export const useAuth = create<AuthState>()(
 
       changePassword: async (currentPassword: string, newPassword: string): Promise<void> => {
         await api.auth.changePassword({ current_password: currentPassword, new_password: newPassword });
-        set({ mustChangePassword: false });
+        set((state) => ({ mustChangePassword: false, setupCompleted: state.mustChangePassword }));
       },
     })
 );
