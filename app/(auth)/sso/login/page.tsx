@@ -2,17 +2,11 @@
 
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { AuthShell, PasswordInput, PortalStatus } from "@/components/portal/design";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { User, Lock, Loader2, AlertCircle } from "lucide-react";
+import { ArrowRight, FileText, Loader2 } from "lucide-react";
 
 import { toast } from "sonner";
 import { ssoApi } from "@/lib/api";
@@ -124,207 +118,44 @@ function SSOLoginContent() {
   };
 
   return (
-    <div className="min-h-screen flex bg-background">
-      {/* Left Panel - SSO Branding */}
-      <div className="hidden lg:flex lg:w-1/2 bg-sidebar relative overflow-hidden">
-        <div className="absolute inset-0 bg-grid-pattern opacity-5" />
-        <div className="absolute -bottom-32 -left-32 h-96 w-96 rounded-full bg-sidebar-primary/20 blur-3xl" />
-        <div className="absolute -top-32 -right-32 h-96 w-96 rounded-full bg-sidebar-primary/10 blur-3xl" />
-
-        <div className="relative z-10 flex flex-col justify-center px-16">
-          <div className="flex items-center gap-4 mb-8">
-            <img src="/lgu-seal.png" alt="LGU Quezon" className="w-14 h-14" />
-            <div>
-              <h1 className="text-3xl font-bold text-sidebar-foreground">
-                LGU-SSO
-              </h1>
-              <p className="text-sm font-medium text-sidebar-foreground/60 uppercase tracking-wider">
-                Single Sign-On
-              </p>
-            </div>
-          </div>
-
-          <div className="space-y-6">
-            <h2 className="text-4xl font-bold text-sidebar-foreground leading-tight">
-              Secure
-              <br />
-              <span className="text-sidebar-primary">Authentication</span>
-            </h2>
-            <p className="text-lg text-sidebar-foreground/70 max-w-md">
-              You are being signed in through the LGU Single Sign-On system.
-            </p>
-          </div>
+    <AuthShell eyebrow="Application sign-in" title="Sign in to your account.">
+      {(validation.status === "loading" || validation.status === "checking-session") && (
+        <div role="status" className="flex items-center gap-3 text-muted-foreground">
+          <Loader2 className="size-5 animate-spin" aria-hidden="true" />
+          {validation.status === "checking-session" ? "Checking your session…" : "Validating the sign-in request…"}
         </div>
-      </div>
-
-      {/* Right Panel - Login Form / Status */}
-      <div className="flex w-full lg:w-1/2 items-center justify-center p-8">
-        <div className="w-full max-w-md">
-          {/* Mobile Logo */}
-          <div className="flex items-center gap-3 mb-8 lg:hidden">
-            <img src="/lgu-seal.png" alt="LGU Quezon" className="w-12 h-12 rounded-full" />
-            <div>
-              <h1 className="text-xl font-bold">LGU-SSO</h1>
-              <p className="text-xs text-muted-foreground uppercase tracking-wider">
-                Single Sign-On
-              </p>
-            </div>
+      )}
+      {validation.status === "missing-params" && (
+        <PortalStatus kind="error" title="This sign-in request is not valid.">
+          Return to the application and start sign-in again. Do not continue from an unrecognized link.
+        </PortalStatus>
+      )}
+      {validation.status === "error" && (
+        <PortalStatus kind="error" title="We couldn’t validate this sign-in request." action={
+          <Button variant="outline" onClick={() => void validateRedirect()}>Try again</Button>
+        }>{validation.message}</PortalStatus>
+      )}
+      {validation.status === "validated" && (
+        <>
+          <div className="lp-requesting-app">
+            <FileText size={23} aria-hidden="true" />
+            <div><small>You’re signing in to</small><strong>{validation.applicationName}</strong></div>
           </div>
-
-          {/* Loading / Checking Session States */}
-          {(validation.status === "loading" ||
-            validation.status === "checking-session") && (
-            <Card className="border-0 shadow-xl shadow-primary/5">
-              <CardContent className="flex flex-col items-center justify-center py-16">
-                <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
-                <p className="text-sm text-muted-foreground">
-                  {validation.status === "checking-session"
-                    ? "Checking existing session..."
-                    : "Validating your request..."}
-                </p>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Missing Params State */}
-          {validation.status === "missing-params" && (
-            <Card className="border-0 shadow-xl shadow-primary/5">
-              <CardContent className="flex flex-col items-center justify-center py-16">
-                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-destructive/10 mb-4">
-                  <AlertCircle className="h-6 w-6 text-destructive" />
-                </div>
-                <h3 className="text-lg font-semibold mb-2">
-                  Invalid Request
-                </h3>
-                <p className="text-sm text-muted-foreground text-center max-w-sm">
-                  Required parameters are missing. Please return to the
-                  application and try again.
-                </p>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Error State */}
-          {validation.status === "error" && (
-            <Card className="border-0 shadow-xl shadow-primary/5">
-              <CardContent className="flex flex-col items-center justify-center py-16">
-                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-destructive/10 mb-4">
-                  <AlertCircle className="h-6 w-6 text-destructive" />
-                </div>
-                <h3 className="text-lg font-semibold mb-2">
-                  Validation Failed
-                </h3>
-                <p className="text-sm text-muted-foreground text-center max-w-sm">
-                  {validation.message}
-                </p>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Login Form State */}
-          {validation.status === "validated" && (
-            <Card className="border-0 shadow-xl shadow-primary/5">
-              <CardHeader className="space-y-1 pb-6">
-                <CardTitle className="text-2xl font-bold">Sign in</CardTitle>
-                <CardDescription>
-                  Sign in to access{" "}
-                  <span className="font-semibold text-foreground">
-                    {validation.applicationName}
-                  </span>
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <form onSubmit={handleSubmit} className="space-y-5">
-                  {loginError && (
-                    <div
-                      role="alert"
-                      className="flex items-center gap-2 rounded-lg bg-destructive/10 p-3 text-sm text-destructive"
-                    >
-                      <AlertCircle className="h-4 w-4 shrink-0" />
-                      <span>{loginError}</span>
-                    </div>
-                  )}
-
-                  <div className="space-y-2">
-                    <Label htmlFor="username" className="text-sm font-medium">
-                      Username
-                    </Label>
-                    <div className="relative">
-                      <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                      <Input
-                        id="username"
-                        type="text"
-                        placeholder="e.g., j.doe"
-                        value={username}
-                        onChange={(e) => setUsername(e.target.value)}
-                        className="pl-10 h-11"
-                        required
-                        disabled={isSubmitting}
-                        autoComplete="username"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="password" className="text-sm font-medium">
-                      Password
-                    </Label>
-                    <div className="relative">
-                      <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                      <Input
-                        id="password"
-                        type="password"
-                        placeholder="Enter your password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        className="pl-10 h-11"
-                        required
-                        disabled={isSubmitting}
-                        autoComplete="current-password"
-                      />
-                    </div>
-                  </div>
-
-                  <Button
-                    type="submit"
-                    className="w-full h-11 text-base font-semibold"
-                    disabled={isSubmitting}
-                  >
-                    {isSubmitting ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Signing in...
-                      </>
-                    ) : (
-                      "Sign in"
-                    )}
-                  </Button>
-                </form>
-
-                <div className="mt-6 text-center text-sm text-muted-foreground">
-                  <p>
-                    You will be redirected back to{" "}
-                    <span className="font-medium text-foreground">
-                      {validation.applicationName}
-                    </span>{" "}
-                    after signing in.
-                  </p>
-                </div>
-
-                <p className="text-sm text-muted-foreground text-center mt-4">
-                  Contact your SSO administrator to request an account.
-                </p>
-              </CardContent>
-            </Card>
-          )}
-
-          <p className="mt-6 text-center text-xs text-muted-foreground">
-            &copy; {new Date().getFullYear()} Local Government of Quezon Bukidnon. All rights
-            reserved.
-          </p>
-        </div>
-      </div>
-    </div>
+          <form onSubmit={handleSubmit}>
+            {loginError && <PortalStatus kind="error" title="Sign-in failed.">{loginError}</PortalStatus>}
+            <div className="lp-field">
+              <Label htmlFor="username">Username</Label>
+              <Input id="username" name="username" autoComplete="username" placeholder="Enter your username" value={username} onChange={(event) => setUsername(event.target.value)} required disabled={isSubmitting} aria-invalid={!!loginError} />
+            </div>
+            <PasswordInput id="password" label="Password" name="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} required disabled={isSubmitting} aria-invalid={!!loginError} />
+            <Button className="lp-submit" type="submit" disabled={isSubmitting}>
+              {isSubmitting ? <><Loader2 className="animate-spin" /> Signing in…</> : <>Sign in and continue <ArrowRight /></>}
+            </Button>
+          </form>
+          <p className="lp-muted mt-5">After sign-in, you’ll return to {validation.applicationName}.</p>
+        </>
+      )}
+    </AuthShell>
   );
 }
 
