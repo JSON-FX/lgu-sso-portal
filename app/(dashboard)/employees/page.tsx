@@ -1,315 +1,44 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { ArrowRight, ChevronLeft, ChevronRight, Plus, Search } from "lucide-react";
+import { PortalStatus } from "@/components/portal/design";
+import { PortalSelect } from "@/components/portal/selection";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
-  UserPlus,
-  Search,
-  MoreHorizontal,
-  Eye,
-  Pencil,
-  Key,
-  Trash2,
-  ChevronLeft,
-  ChevronRight,
-} from "lucide-react";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { api } from "@/lib/api";
-import { Employee, PaginatedResponse } from "@/types";
-import { format } from "date-fns";
-import { ViewEmployeeModal } from "@/components/employees/view-employee-modal";
+import type { Employee, PaginatedResponse } from "@/types";
 
 export default function EmployeesPage() {
-  const router = useRouter();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [meta, setMeta] = useState<PaginatedResponse<Employee>["meta"] | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [query, setQuery] = useState("");
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [status, setStatus] = useState("all");
   const [page, setPage] = useState(1);
-
-  // View modal state
-  const [viewModalOpen, setViewModalOpen] = useState(false);
-  const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
-
-  const handleViewEmployee = (employee: Employee) => {
-    setSelectedEmployee(employee);
-    setViewModalOpen(true);
-  };
-
-  const loadEmployees = async () => {
-    setIsLoading(true);
+  const load = useCallback(async () => {
+    setLoading(true); setError("");
     try {
-      const status = statusFilter === "all" ? undefined : (statusFilter as "active" | "inactive");
-      const response = await api.employees.list(page, 10, search || undefined, status);
-      setEmployees(response.data);
-      setMeta(response.meta);
-    } catch (error) {
-      console.error("Failed to load employees:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+      const result = await api.employees.list(page, 15, search || undefined, status === "all" ? undefined : status as "active" | "inactive");
+      setEmployees(result.data); setMeta(result.meta);
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "We couldn’t load employees."); }
+    finally { setLoading(false); }
+  }, [page, search, status]);
+  useEffect(() => { void Promise.resolve().then(load); }, [load]);
+  useEffect(() => { const timer = window.setTimeout(() => { setPage(1); setSearch(query.trim()); }, 250); return () => window.clearTimeout(timer); }, [query]);
 
-  useEffect(() => {
-    loadEmployees();
-  }, [page, statusFilter]);
-
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    setPage(1);
-    loadEmployees();
-  };
-
-  return (
-    <div className="space-y-6">
-      {/* Page Header */}
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Employees</h1>
-          <p className="text-muted-foreground">
-            Manage employee accounts and access permissions
-          </p>
-        </div>
-        <Button asChild>
-          <Link href="/employees/new">
-            <UserPlus className="mr-2 h-4 w-4" />
-            Add Employee
-          </Link>
-        </Button>
-      </div>
-
-      {/* Filters */}
-      <div className="flex flex-col gap-4 md:flex-row md:items-center">
-        <form onSubmit={handleSearch} className="flex flex-1 gap-2">
-          <div className="relative flex-1 max-w-sm">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="Search by name or email..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-9"
-            />
-          </div>
-          <Button type="submit" variant="secondary">
-            Search
-          </Button>
-        </form>
-
-        <Select value={statusFilter} onValueChange={(value) => { setStatusFilter(value); setPage(1); }}>
-          <SelectTrigger className="w-[150px]">
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Status</SelectItem>
-            <SelectItem value="active">Active</SelectItem>
-            <SelectItem value="inactive">Inactive</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
-      {/* Table */}
-      <div className="rounded-lg border bg-card">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Username</TableHead>
-              <TableHead>Email</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Apps</TableHead>
-              <TableHead>Created</TableHead>
-              <TableHead className="w-[70px]"></TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isLoading ? (
-              // Loading skeleton
-              Array.from({ length: 5 }).map((_, i) => (
-                <TableRow key={i}>
-                  <TableCell>
-                    <div className="flex items-center gap-3">
-                      <Skeleton className="h-10 w-10 rounded-full" />
-                      <Skeleton className="h-4 w-32" />
-                    </div>
-                  </TableCell>
-                  <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-40" /></TableCell>
-                  <TableCell><Skeleton className="h-5 w-16" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-8" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                  <TableCell><Skeleton className="h-8 w-8" /></TableCell>
-                </TableRow>
-              ))
-            ) : employees.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={7} className="h-32 text-center">
-                  <p className="text-muted-foreground">No employees found</p>
-                </TableCell>
-              </TableRow>
-            ) : (
-              employees.map((employee) => (
-                <TableRow
-                  key={employee.uuid}
-                  className="cursor-pointer hover:bg-muted/50"
-                  onClick={() => handleViewEmployee(employee)}
-                >
-                  <TableCell>
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
-                        {employee.initials}
-                      </div>
-                      <div>
-                        <p className="font-medium">{employee.full_name}</p>
-                        {employee.city && (
-                          <p className="text-xs text-muted-foreground">
-                            {employee.city}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  </TableCell>
-                  <TableCell className="font-mono text-muted-foreground">
-                    {employee.username}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {employee.email}
-                  </TableCell>
-                  <TableCell>
-                    <Badge
-                      variant={employee.is_active ? "default" : "secondary"}
-                      className={
-                        employee.is_active
-                          ? "bg-green-500/10 text-green-700 hover:bg-green-500/20"
-                          : "bg-gray-500/10 text-gray-600"
-                      }
-                    >
-                      {employee.is_active ? "Active" : "Inactive"}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <span className="text-muted-foreground">
-                      {employee.applications?.length || 0}
-                    </span>
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {format(new Date(employee.created_at), "MMM d, yyyy")}
-                  </TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleViewEmployee(employee);
-                          }}
-                        >
-                          <Eye className="mr-2 h-4 w-4" />
-                          View Details
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            router.push(`/employees/${employee.uuid}`);
-                          }}
-                        >
-                          <Pencil className="mr-2 h-4 w-4" />
-                          Edit
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            router.push(`/employees/${employee.uuid}/applications`);
-                          }}
-                        >
-                          <Key className="mr-2 h-4 w-4" />
-                          Manage Access
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          className="text-destructive focus:text-destructive"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-
-        {/* Pagination */}
-        {meta && meta.last_page > 1 && (
-          <div className="flex items-center justify-between border-t px-4 py-3">
-            <p className="text-sm text-muted-foreground">
-              Showing {meta.from} to {meta.to} of {meta.total} employees
-            </p>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setPage(page - 1)}
-                disabled={page === 1}
-              >
-                <ChevronLeft className="h-4 w-4" />
-                Previous
-              </Button>
-              <span className="text-sm text-muted-foreground">
-                Page {meta.current_page} of {meta.last_page}
-              </span>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setPage(page + 1)}
-                disabled={page === meta.last_page}
-              >
-                Next
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* View Employee Modal */}
-      <ViewEmployeeModal
-        employee={selectedEmployee}
-        open={viewModalOpen}
-        onOpenChange={setViewModalOpen}
-      />
-    </div>
-  );
+  return <div className="lp-admin">
+    <header className="lp-admin-heading"><div><p className="lp-admin-eyebrow">People & access</p><h1>Employees</h1><p className="lp-admin-description">Find an employee, keep their record current, and manage application access.</p></div><Button asChild><Link href="/employees/new"><Plus aria-hidden="true" />Add employee</Link></Button></header>
+    <div className="lp-admin-toolbar"><div className="lp-admin-search"><Search size={18} aria-hidden="true" /><Input aria-label="Search employees by name or email" placeholder="Search by name or email" value={query} onChange={(event) => setQuery(event.target.value)} maxLength={255} /></div><div className="lp-admin-filter"><PortalSelect label="Employee status" value={status} options={[{ value: "all", label: "All statuses" }, { value: "active", label: "Active" }, { value: "inactive", label: "Inactive" }]} onValueChange={(value) => { setPage(1); setStatus(value); }} /></div><span className="lp-admin-hint">{meta ? `${meta.total} ${meta.total === 1 ? "record" : "records"}` : ""}</span></div>
+    {error ? <PortalStatus kind="error" title="We couldn’t load employees." action={<Button variant="outline" onClick={() => void load()}>Try again</Button>}>{error}</PortalStatus> : <div className="lp-admin-table"><Table><TableHeader><TableRow><TableHead>Employee</TableHead><TableHead>Office</TableHead><TableHead>Status</TableHead><TableHead className="text-right">Manage</TableHead></TableRow></TableHeader><TableBody>
+      {loading ? [1, 2, 3, 4].map((item) => <TableRow key={item}><TableCell colSpan={4}><Skeleton className="h-10 w-full" /></TableCell></TableRow>) : employees.length ? employees.map((employee) => <TableRow key={employee.uuid}><TableCell><strong>{employee.full_name}</strong><small>{employee.username}</small></TableCell><TableCell>{employee.office?.name || "No office assigned"}<small>{employee.position?.title || "No position assigned"}</small></TableCell><TableCell><Badge variant="secondary">{employee.is_active ? "Active" : "Inactive"}</Badge></TableCell><TableCell className="text-right"><div className="lp-admin-row-actions"><Button variant="ghost" size="sm" asChild><Link href={`/employees/${employee.uuid}`} aria-label={`Edit ${employee.full_name}`}>Edit</Link></Button><Button variant="outline" size="sm" asChild><Link href={`/employees/${employee.uuid}/applications`} aria-label={`Manage access for ${employee.full_name}`}>Access<ArrowRight aria-hidden="true" /></Link></Button></div></TableCell></TableRow>) : <TableRow><TableCell colSpan={4}><div className="lp-admin-empty">{search || status !== "all" ? "No employees match these filters." : "No employees yet. Add an employee to begin."}</div></TableCell></TableRow>}
+    </TableBody></Table></div>}
+    {!error && !loading && meta && meta.last_page > 1 && <div className="lp-admin-pagination"><span>Showing {meta.from}–{meta.to} of {meta.total} employees</span><div><Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(page - 1)}><ChevronLeft aria-hidden="true" />Previous</Button><span>Page {meta.current_page} of {meta.last_page}</span><Button variant="outline" size="sm" disabled={page >= meta.last_page} onClick={() => setPage(page + 1)}>Next<ChevronRight aria-hidden="true" /></Button></div></div>}
+  </div>;
 }

@@ -139,6 +139,16 @@
 .lp-admin-details { display: grid; grid-template-columns: 110px 1fr; gap: 12px; font-size: 14px; }
 .lp-admin-details dt { color: var(--muted-foreground); }
 .lp-admin-details dd { overflow-wrap: anywhere; }
+.lp-admin-toolbar { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; }
+.lp-admin-search { position: relative; width: 100%; max-width: 440px; }
+.lp-admin-search > svg { position: absolute; top: 13px; left: 13px; color: var(--muted-foreground); pointer-events: none; }
+.lp-admin-search input { min-height: 44px; padding-left: 40px; }
+.lp-admin-filter { width: 170px; }
+.lp-admin-toolbar > .lp-admin-hint { margin-left: auto; color: var(--muted-foreground); font-size: 13px; }
+.lp-admin-row-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.lp-admin-empty { padding: 44px 12px; color: var(--muted-foreground); text-align: center; }
+.lp-admin-pagination { display: flex; justify-content: space-between; align-items: center; gap: 20px; padding: 16px 0; color: var(--muted-foreground); font-size: 14px; }
+.lp-admin-pagination > div { display: flex; align-items: center; gap: 12px; }
 :focus-visible { outline: 2px solid var(--ring); outline-offset: 3px; }
 @media (max-width: 1000px) {
   .lp-with-rail { grid-template-columns: 210px minmax(0,1fr); }
@@ -156,6 +166,10 @@
   .lp-admin-summary { flex-direction: column; gap: 20px; }
   .lp-admin-event { align-items: flex-start; }
   .lp-admin-event time { white-space: nowrap; }
+  .lp-admin-toolbar { flex-wrap: wrap; }
+  .lp-admin-search { max-width: none; flex-basis: 100%; }
+  .lp-admin-filter { width: min(190px, 100%); }
+  .lp-admin-pagination { align-items: flex-start; flex-direction: column; }
   .lp-form-grid { grid-template-columns: 1fr; gap: 22px; }
   .lp-section-heading { align-items: flex-start; flex-direction: column; }
   .lp-profile-identity { flex-wrap: wrap; gap: 12px; }
