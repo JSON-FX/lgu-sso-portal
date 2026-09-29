@@ -83,6 +83,10 @@ For long-lived connections, authorize at connection establishment and each prote
 
 `GET /sso/employees` uses client credentials and returns only active employees with completed password setup and a grant for that application. It is not a directory of every SSO employee. Do not use cached directory membership as authorization.
 
+For role-aware discovery, use `GET /sso/directory` with an explicit `roles[]` allowlist and optional `search`, `page`, and `per_page`. Use `GET /sso/directory/{uuid}` with the same role filter to verify a prospective recipient currently. Both use server-side client credentials and filter active, password-ready employees by the requesting application before pagination. Responses contain only UUID, display name/initials, current role, and nullable office display fields. The legacy endpoint remains unchanged.
+
+The [backend directory contract](../lgu-sso-backend/docs/consumer-directory.md) defines exact bounds, response shapes, errors, and tests. These endpoints describe source capability; verify the backend revision deployed in your environment before enabling a consumer. Consumers must authorize their own caller, choose allowed roles server-side, and deny contact when current recipient verification fails. Directory data never grants access to conversation content.
+
 ## Logout
 
 **Sign out:** the consumer server calls `POST /api/v1/auth/logout` with `Authorization: Bearer <application bearer>`. On success, destroy the current local session and expire its cookie. This revokes only that bearer and preserves the portal and other applications. If SSO is unreachable, clear local access but report that remote revocation could not be confirmed; do not claim global logout. A user can return through the portal without another password while their central session remains valid.

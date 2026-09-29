@@ -56,3 +56,7 @@ npx tsc --noEmit
 npm run lint
 npm run build
 ```
+
+## Consumer directory contract
+
+The [integration guide](LGU-SSO-INTEGRATION-GUIDE.md#identity-and-directory-endpoints) documents the backend’s role-aware directory and current recipient lookup. Consumer servers use confidential credentials; the portal does not expose these routes to browsers. Verify deployment of the corresponding backend revision before enabling consumers.
