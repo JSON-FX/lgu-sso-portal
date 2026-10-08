@@ -48,6 +48,10 @@ docker compose --env-file "$production_env" -f docker-compose.prod.yml up -d --n
 
 Verify login, required password setup, grants, code exchange/replay, token isolation, backend outage behavior, and both logout options before admitting consumers. This local implementation does not constitute production deployment acceptance.
 
+## Office server
+
+The office deployment uses `https://sso.lguquezon.local` for this Portal and `https://api.sso.lguquezon.local` for the API. Follow the [office deployment runbook](../lgu-sso-backend/README.md#office-server-deployment) for the existing Nginx ingress and isolated SSO Compose stack.
+
 ## Checks
 
 ```sh

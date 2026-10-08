@@ -1,12 +1,12 @@
 # Stage 1: Install dependencies
-FROM node:20-alpine AS deps
+FROM node:24-alpine AS deps
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
 COPY package.json package-lock.json* ./
 RUN npm ci
 
 # Stage 2: Build the application
-FROM node:20-alpine AS builder
+FROM node:24-alpine AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
@@ -15,7 +15,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 
 # Build args for NEXT_PUBLIC_* vars (baked into client bundle at build time)
 ARG NEXT_PUBLIC_USE_MOCK_API=false
-ARG NEXT_PUBLIC_API_BASE_URL=http://sso.lguquezon.local/api/v1
+ARG NEXT_PUBLIC_API_BASE_URL=https://api.sso.lguquezon.local/api/v1
 ARG NEXT_PUBLIC_SECURE_COOKIES=true
 
 ENV NEXT_PUBLIC_USE_MOCK_API=$NEXT_PUBLIC_USE_MOCK_API
@@ -25,7 +25,7 @@ ENV NEXT_PUBLIC_SECURE_COOKIES=$NEXT_PUBLIC_SECURE_COOKIES
 RUN npm run build
 
 # Stage 3: Production runner
-FROM node:20-alpine AS runner
+FROM node:24-alpine AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
