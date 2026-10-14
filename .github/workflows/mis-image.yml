@@ -1,0 +1,52 @@
+name: MIS SSO Portal image
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+permissions:
+  contents: read
+concurrency:
+  group: mis-image-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  validate-and-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run lint
+      - run: npx tsc --noEmit
+      - uses: docker/setup-buildx-action@v3
+      - name: Build the tested source
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64
+          tags: lgu-sso-portal:${{ github.sha }}
+          labels: |
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+          outputs: type=docker,dest=image.tar
+          cache-from: type=gha,scope=lgu-sso-portal
+          cache-to: type=gha,mode=max,scope=lgu-sso-portal
+      - name: Package immutable image
+        run: |
+          gzip image.tar
+          sha256sum image.tar.gz > image.tar.gz.sha256
+      - uses: actions/upload-artifact@v4
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        with:
+          name: mis-image-${{ github.sha }}
+          path: |
+            image.tar.gz
+            image.tar.gz.sha256
+          compression-level: 0
+          retention-days: 14
+          if-no-files-found: error
