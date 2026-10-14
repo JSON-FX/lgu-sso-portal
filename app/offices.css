@@ -1,0 +1,61 @@
+.lp-offices h1:focus { outline: none; }
+.lp-offices .lp-admin-heading h1 { margin-top: 0; }
+.lp-offices button { min-height: 44px; }
+.lp-office-filter { width: 170px; flex-shrink: 0; }
+.lp-office-table { border-top: 1px solid var(--border); }
+.lp-office-table [data-slot="table"] { width: 100%; }
+.lp-office-name { width: 49%; white-space: normal; }
+.lp-office-abbreviation { font-weight: 600; letter-spacing: .015em; }
+.lp-office-status { font-size: 13px; padding: 4px 9px; font-weight: 400; }
+.lp-office-directory-note { border-top: 1px solid var(--border); margin-top: 24px; padding-top: 20px; color: var(--muted-foreground); font-size: 14px; line-height: 1.6; }
+.lp-office-directory-note strong { color: var(--foreground); font-weight: 600; }
+.lp-office-directory-note p + p { margin-top: 4px; }
+.lp-office-notice { display: flex; align-items: center; gap: 12px; padding: 8px 12px 8px 16px; background: var(--secondary); color: var(--secondary-foreground); margin-bottom: 24px; }
+.lp-office-notice > svg { width: 18px; flex-shrink: 0; }
+.lp-office-notice p { flex: 1; font-size: 14px; }
+.lp-office-editor-layout { display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 48px; align-items: start; }
+.lp-office-fields { display: grid; gap: 24px; }
+.lp-office-abbreviation-field { max-width: 400px; }
+.lp-office-abbreviation-field input { max-width: 240px; }
+.lp-office-fields .lp-admin-error { margin-top: 0; }
+.lp-office-impact { border-top: 1px solid var(--border); padding-top: 28px; }
+.lp-office-impact h2 { font-size: 16px; font-weight: 600; line-height: 1.4; margin-bottom: 12px; }
+.lp-office-impact h3 { font-size: 14px; font-weight: 600; margin: 24px 0 8px; }
+.lp-office-impact p { color: var(--muted-foreground); font-size: 14px; line-height: 1.6; }
+.lp-office-status-section { margin-top: 40px; }
+.lp-office-status-hint { margin-top: 12px; }
+.lp-office-status-notice { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 16px; font-size: 14px; color: var(--primary); }
+.lp-office-status-notice svg { flex-shrink: 0; margin-top: 2px; }
+.lp-office-save-error { margin-bottom: 24px; }
+.lp-office-confirm-note { color: var(--muted-foreground); font-size: 14px; line-height: 1.6; }
+.lp-office-confirm button { min-height: 44px; }
+.lp-offices .lp-admin-empty p { max-width: 470px; margin: 8px auto 16px; }
+.lp-offices .lp-admin-empty strong { color: var(--foreground); }
+@media (max-width: 1100px) {
+  .lp-office-editor-layout { grid-template-columns: minmax(0, 1fr); gap: 24px; }
+  .lp-office-impact { max-width: 680px; }
+}
+@media (max-width: 760px) {
+  .lp-office-toolbar .lp-admin-search { flex-basis: 100%; }
+  .lp-office-toolbar > .lp-admin-hint { width: auto; margin-left: auto; }
+  .lp-offices [data-slot="table"] { min-width: 630px; }
+  .lp-office-name { min-width: 250px; }
+  .lp-office-editor-layout { gap: 16px; }
+  .lp-office-status-section { margin-top: 24px; }
+  .lp-offices .lp-admin-form-actions { position: static; }
+  .lp-office-confirm [data-slot="dialog-footer"] { display: flex; flex-direction: column-reverse; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lp-office-confirm, [data-slot="dialog-overlay"] { animation: none !important; transition: none !important; }
+}
+
+.lp-offices .lp-admin-right { text-align: right; }
+.lp-office-table td { padding-top: 16px; padding-bottom: 16px; }
+
+.lp-main:has(.lp-offices) { margin-block: 0; align-self: start; }
+
+.lp-directory-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+@media (max-width: 760px) {
+  .lp-directory-actions { width: 100%; }
+  .lp-directory-actions button { flex: 1; }
+}

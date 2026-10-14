@@ -83,6 +83,45 @@ For long-lived connections, authorize at connection establishment and each prote
 
 `GET /sso/employees` uses client credentials and returns only active employees with completed password setup and a grant for that application. It is not a directory of every SSO employee. Do not use cached directory membership as authorization.
 
+## Shared office directory
+
+SSO owns office names, abbreviations, and active status. Super administrators manage these records on the portal's `/offices` page. Connected applications read the same records through these server-to-server endpoints:
+
+| Endpoint | Behavior |
+| --- | --- |
+| `GET /api/v1/sso/offices` | Searchable, paginated active offices. |
+| `GET /api/v1/sso/offices/{id}` | Current metadata for an office, including inactive historical records. |
+| `GET /api/v1/sso/directory` | Application-scoped employees with current `office_id`, `office_name`, and `office_abbreviation`. |
+
+Send `X-Client-ID` and `X-Client-Secret` from the consumer server. Office responses contain `id`, `name`, `abbreviation`, and boolean `is_active`. Lists accept `search` (maximum 100 characters), `page` (1–10000), and `per_page` (1–100, default 50); follow `meta.has_more`. The employee directory separately requires `roles[]` and uses a maximum page size of 50. See the backend's `docs/consumer-directory.md` for the complete directory contract.
+
+Office edits appear on subsequent endpoint reads. Deactivation removes the office from active lists; its ID, employee assignments, and detail lookup remain available. Reactivation restores the same office to active lists. Existing employees are not deactivated when their office is deactivated. Keep historical transaction snapshots in the consumer when the original display name matters. Do not treat reference metadata as authorization.
+
+There is no push synchronization to consumers. Applications that copy or cache office data must refresh it. Reference IDs belong to one SSO database; do not assume staging and production IDs match.
+
+### Portal administration contract
+
+These routes require an active central SSO session, completed password setup, and a current `super_administrator` grant on the active **Admin App Management System** application. Consumer credentials and application bearers cannot write office data.
+
+| Endpoint | Behavior |
+| --- | --- |
+| `GET /api/v1/offices?include_inactive=1` | Complete management list. Omit the flag for active offices only. |
+| `GET /api/v1/offices/{id}` | Current record, including inactive offices. |
+| `POST /api/v1/offices` | Create from `name` and `abbreviation`; starts active, returns 201. |
+| `PUT /api/v1/offices/{id}` | Update supplied `name`, `abbreviation`, or boolean `is_active`; returns 200. |
+
+Management responses use `{data: {id, name, abbreviation, is_active}}`. Names and abbreviations are trimmed, required when supplied, and case-insensitively unique, including inactive records. Length limits are 255 and 20 characters. Creation must omit `is_active`. Invalid fields return 422 with field errors. Metadata saves omit status; activation changes send only `is_active`. Writes and audit records commit together.
+
+Self-service `GET /api/v1/portal/offices` always excludes inactive offices, even if a caller supplies `include_inactive=1`. Office management adds no schema migration or seeder requirement. Do not rerun snapshot reference seeders to deploy it; they can overwrite managed data.
+
+### Position administration contract
+
+Positions use the same central SSO super-administrator boundary as Offices. `GET /api/v1/positions` is active-only by default; `include_inactive=1` returns all records. `GET /positions/{id}` includes inactive records. `POST /positions` accepts a `title` and starts active; `PUT /positions/{id}` accepts a partial `title` or boolean `is_active`. Responses contain `data: {id, title, is_active}`. Titles are trimmed, required when supplied, case-insensitively unique including inactive records, and limited to 255 characters. Invalid fields return 422. Successful mutations and audit records commit together.
+
+Self-service `GET /api/v1/portal/positions` always excludes inactive positions. External applications use `GET /api/v1/sso/positions` and `GET /api/v1/sso/positions/{id}` with server-side client credentials. The list is searchable and paginated, active-only; the detail route retains historical inactive references. Employee responses and the application-scoped directory retain `position_id` and show the current title. Deactivation does not alter employee assignments. A consumer that caches titles must refetch; no push notification is sent.
+
+The portal's Offices and Positions pages offer **Export all CSV**. These downloads include all management rows, including inactive records, regardless of the current page filters. Offices columns are `id,name,abbreviation,is_active`; positions columns are `id,title,is_active`. `is_active` uses `true` or `false`. CSV text is quoted and guarded against spreadsheet formulas. Current employee counts are not included. Export is disabled until the full management list loads.
+
 ## Logout
 
 **Sign out:** the consumer server calls `POST /api/v1/auth/logout` with `Authorization: Bearer <application bearer>`. On success, destroy the current local session and expire its cookie. This revokes only that bearer and preserves the portal and other applications. If SSO is unreachable, clear local access but report that remote revocation could not be confirmed; do not claim global logout. A user can return through the portal without another password while their central session remains valid.

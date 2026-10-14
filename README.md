@@ -52,6 +52,18 @@ Verify login, required password setup, grants, code exchange/replay, token isola
 
 The office deployment uses `https://sso.lguquezon.local` for this Portal and `https://api.sso.lguquezon.local` for the API. Follow the [office deployment runbook](../lgu-sso-backend/README.md#office-server-deployment) for the existing Nginx ingress and isolated SSO Compose stack.
 
+## Office management
+
+Super administrators can add offices, edit names and abbreviations, and deactivate or reactivate offices at `/offices`. The page uses the real SSO API, preserves drafts on failed saves, and confirms status changes. Successful writes update the shared records consumed by external applications. IDs and existing employee assignments remain stable.
+
+See the [office contract](LGU-SSO-INTEGRATION-GUIDE.md#shared-office-directory) and [staging handoff](docs/office-management-staging.md). The current office feature depends on the newer reference-directory backend source; use the handoff's source paths instead of rebuilding the older primary backend checkout. Staging deployment is deferred until the owner is at the office.
+
+## Position management and CSV exports
+
+Super administrators manage positions at `/positions` using the same add, edit, deactivate, and reactivate flow as Offices. Both directories provide **Export all CSV** for the complete current management list. Position titles and status are reflected in consumer reference and employee endpoints on subsequent reads. The supplied October 8 position CSV matches all 306 existing seeded titles after normalization; this feature does not import or overwrite records.
+
+See the [shared directory contract](LGU-SSO-INTEGRATION-GUIDE.md#shared-office-directory) and [staging handoff](docs/office-management-staging.md).
+
 ## Checks
 
 ```sh
