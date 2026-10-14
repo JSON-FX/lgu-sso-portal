@@ -83,6 +83,19 @@ For long-lived connections, authorize at connection establishment and each prote
 
 `GET /sso/employees` uses client credentials and returns only active employees with completed password setup and a grant for that application. It is not a directory of every SSO employee. Do not use cached directory membership as authorization.
 
+
+### Canonical employee, office and position data
+
+Use `GET /sso/directory` and `GET /sso/directory/{uuid}` for application-scoped employee discovery and lookup. Both require server-side `X-Client-ID` / `X-Client-Secret` headers and an explicit `roles[]` allowlist (`guest`, `standard`, `administrator`, `super_administrator`). Only active, password-ready employees currently granted a selected role for your application are visible. Choose role policy on the consumer server and authorize your own caller first.
+
+Employee responses contain `uuid`, `full_name`, `initials`, `role`, `office_id`, `office_name`, `office_abbreviation`, `position_id`, and `position_title`. Office/position fields may be null. Directory lists return `{data, meta: {page, per_page, has_more}}`; `search` is optional, `per_page` is 1–50 (default 20), and `page` is 1–10000. Detail returns `{data}` and uses the same current eligibility rules. Missing and inaccessible users both return 404.
+
+`GET /sso/offices` and `GET /sso/positions` share reference data with every active registered application. They use the same confidential headers but no role filter. Lists include active records only, optional literal `search`, page 1–10000, and page size 1–100 (default 50). Office records contain `{id, name, abbreviation, is_active}`; position records contain `{id, title, is_active}`. Append `/{id}` to resolve an inactive historical record too. Use searchable comboboxes and follow `meta.has_more` when loading options.
+
+Store employee UUIDs and SSO office/position IDs in consumer business records. IDs are environment-specific and preserved through renames. For historical endorsements, also store permitted display snapshots when the event occurs. Later lookups return current names and designations. Never treat directory data or snapshots as authorization. Keep login through the Portal and continue current `/sso/authorize` checks.
+
+The [backend directory contract](../lgu-sso-backend/docs/consumer-directory.md) includes exact search semantics, examples, errors, private/no-store behavior, and October 14 reference-data reconciliation. Local API base is `https://sso.lgu.lan/api/v1`; local Portal is `https://sso-portal.lgu.lan`. Check deployment status before using new endpoints on the office server.
+
 ## Logout
 
 **Sign out:** the consumer server calls `POST /api/v1/auth/logout` with `Authorization: Bearer <application bearer>`. On success, destroy the current local session and expire its cookie. This revokes only that bearer and preserves the portal and other applications. If SSO is unreachable, clear local access but report that remote revocation could not be confirmed; do not claim global logout. A user can return through the portal without another password while their central session remains valid.

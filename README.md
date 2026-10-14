@@ -60,3 +60,8 @@ npx tsc --noEmit
 npm run lint
 npm run build
 ```
+
+
+## Canonical reference directory
+
+SSO owns employee UUIDs, offices and positions. The Portal uses SSO's active office/position lists for selection. Consumers retrieve their granted employees through `/api/v1/sso/directory` and reference lists through `/api/v1/sso/offices` and `/api/v1/sso/positions`, using confidential server-side client credentials. The [integration guide](LGU-SSO-INTEGRATION-GUIDE.md#canonical-employee-office-and-position-data) documents stable IDs, current position/designation, separate office abbreviations, search and pagination. A consumer must still authorize protected operations and sign users in through the Portal.
