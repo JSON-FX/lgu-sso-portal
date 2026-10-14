@@ -9,9 +9,17 @@ export interface Office {
   abbreviation: string;
 }
 
+export interface ManagedOffice extends Office {
+  is_active: boolean;
+}
+
 export interface Position {
   id: number;
   title: string;
+}
+
+export interface ManagedPosition extends Position {
+  is_active: boolean;
 }
 
 export interface Employee {

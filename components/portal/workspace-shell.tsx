@@ -3,7 +3,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { AppWindow, ChevronDown, FileText, KeyRound, LayoutGrid, Loader2, LogOut, Menu, Settings2, UserRound, Users } from "lucide-react";
+import { AppWindow, BriefcaseBusiness, ChevronDown, FileText, KeyRound, LayoutGrid, Landmark, Loader2, LogOut, Menu, Settings2, UserRound, Users } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/use-auth";
 import { PortalBrand, PortalStatus } from "@/components/portal/design";
@@ -11,6 +11,8 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+
+import { NavigationGuardProvider, useNavigationGuard } from "./navigation-guard";
 
 const employeeNav = [
   { href: "/portal/applications", label: "My applications", icon: LayoutGrid },
@@ -20,6 +22,8 @@ const employeeNav = [
 const adminNav = [
   { href: "/dashboard", label: "Overview", icon: LayoutGrid },
   { href: "/employees", label: "Employees", icon: Users },
+  { href: "/offices", label: "Offices", icon: Landmark },
+  { href: "/positions", label: "Positions", icon: BriefcaseBusiness },
   { href: "/applications", label: "Applications", icon: AppWindow },
   { href: "/audit", label: "Audit trail", icon: FileText },
 ];
@@ -39,13 +43,14 @@ export function AuthenticatedWorkspace({ admin = false, children }: { admin?: bo
   if (isLoading) return <div className="flex min-h-screen items-center justify-center gap-3" role="status"><Loader2 className="animate-spin" aria-hidden="true" />Loading your information…</div>;
   if (authError) return <div className="mx-auto flex min-h-screen max-w-lg items-center px-6"><PortalStatus kind="error" title="Sign-in service is temporarily unavailable." action={<Button variant="outline" onClick={() => void checkAuth()}>Try again</Button>}>{authError}</PortalStatus></div>;
   if (!isAuthenticated || mustChangePassword || (admin && !isSuperAdmin)) return null;
-  return <WorkspaceShell admin={admin}>{children}</WorkspaceShell>;
+  return <NavigationGuardProvider><WorkspaceShell admin={admin}>{children}</WorkspaceShell></NavigationGuardProvider>;
 }
 
 export function WorkspaceShell({ admin = false, children }: { admin?: boolean; children: ReactNode }) {
   const { user, isSuperAdmin, logout } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
+  const { requestNavigation, resetPage } = useNavigationGuard();
   const [menuOpen, setMenuOpen] = useState(false);
   const [globalSignout, setGlobalSignout] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
@@ -70,14 +75,14 @@ export function WorkspaceShell({ admin = false, children }: { admin?: boolean; c
     <nav aria-label={admin ? "Administration" : "My account"}>
       {navItems.map(({ href, label, icon: Icon }) => {
         const active = pathname === href || (href !== "/portal" && pathname.startsWith(`${href}/`));
-        return <Button key={href} asChild variant="ghost" aria-current={active ? "page" : undefined} onClick={() => setMenuOpen(false)}>
-          <Link href={href}><Icon size={18} aria-hidden="true" />{label}</Link>
+        return <Button key={href} asChild variant="ghost" aria-current={active ? "page" : undefined} >
+          <Link href={href} onNavigate={(event) => { event.preventDefault(); requestNavigation(() => { setMenuOpen(false); if (pathname === href) resetPage(); else router.push(href); }); }}><Icon size={18} aria-hidden="true" />{label}</Link>
         </Button>;
       })}
       {isSuperAdmin && <>
         <span className="lp-nav-divider" aria-hidden="true" />
-        <Button asChild variant="ghost" onClick={() => setMenuOpen(false)}>
-          <Link href={admin ? "/portal/applications" : "/dashboard"}><Settings2 size={18} aria-hidden="true" />{admin ? "Employee workspace" : "Administration"}</Link>
+        <Button asChild variant="ghost" >
+          <Link href={admin ? "/portal/applications" : "/dashboard"} onNavigate={(event) => { event.preventDefault(); requestNavigation(() => { setMenuOpen(false); router.push(admin ? "/portal/applications" : "/dashboard"); }); }}><Settings2 size={18} aria-hidden="true" />{admin ? "Employee workspace" : "Administration"}</Link>
         </Button>
       </>}
     </nav>
@@ -104,10 +109,10 @@ export function WorkspaceShell({ admin = false, children }: { admin?: boolean; c
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onSelect={() => router.push("/portal")}>My profile</DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => router.push("/portal/change-password")}>Change password</DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => requestNavigation(() => router.push("/portal"))}>My profile</DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => requestNavigation(() => router.push("/portal/change-password"))}>Change password</DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onSelect={() => void signOut(false)}><LogOut /> Sign out of LGU Portal</DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => requestNavigation(() => { void signOut(false); })}><LogOut /> Sign out of LGU Portal</DropdownMenuItem>
             <DropdownMenuItem onSelect={() => setGlobalSignout(true)}>Sign out everywhere…</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -127,7 +132,7 @@ export function WorkspaceShell({ admin = false, children }: { admin?: boolean; c
         <DialogHeader><DialogTitle>Sign out everywhere?</DialogTitle><DialogDescription>This ends your central SSO session and invalidates sessions in connected applications. Save your work before continuing.</DialogDescription></DialogHeader>
         <DialogFooter>
           <Button variant="outline" onClick={() => setGlobalSignout(false)} disabled={signingOut}>Keep my sessions</Button>
-          <Button onClick={() => void signOut(true)} disabled={signingOut}>{signingOut ? "Signing out…" : "Sign out everywhere"}</Button>
+          <Button onClick={() => { setGlobalSignout(false); requestNavigation(() => { void signOut(true); }); }} disabled={signingOut}>{signingOut ? "Signing out…" : "Sign out everywhere"}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

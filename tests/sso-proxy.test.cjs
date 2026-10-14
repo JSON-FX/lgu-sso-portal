@@ -25,12 +25,12 @@ function handler(fetch, overrides = {}) {
   });
   return exports;
 }
-function request(path, { method = 'POST', origin = 'https://portal.example', cookie = '', headers = {} } = {}) {
+function request(path, { method = 'POST', origin = 'https://portal.example', cookie = '', headers = {}, body = {} } = {}) {
   const requestHeaders = { 'Content-Type': 'application/json', ...headers };
   if (origin !== null) requestHeaders.Origin = origin;
   if (cookie) requestHeaders.Cookie = cookie;
   return new NextRequest('https://portal.example/api/sso-backend/' + path, {
-    method, headers: requestHeaders, ...(['GET', 'HEAD'].includes(method) ? {} : { body: '{}' }),
+    method, headers: requestHeaders, ...(['GET', 'HEAD'].includes(method) ? {} : { body: JSON.stringify(body) }),
   });
 }
 function context(path) { return { params: Promise.resolve({ path: path.split('/') }) }; }
@@ -107,4 +107,76 @@ test('preserves rate-limit retry information and accepts empty 204 responses', a
   assert.equal((await limited.POST(request('auth/login'), context('auth/login'))).headers.get('retry-after'), '900');
   const empty = handler(async () => new Response(null, { status: 204 }));
   assert.equal((await empty.DELETE(request('employees/example', { method: 'DELETE' }), context('employees/example'))).status, 204);
+});
+
+
+test('office writes preserve payloads and validation responses through the central cookie proxy', async () => {
+  for (const [path, method, body] of [
+    ['offices', 'POST', { name: 'Community Office', abbreviation: 'CO' }],
+    ['offices/12', 'PUT', { name: 'Community Services Office', abbreviation: 'CSO' }],
+    ['offices/12', 'PUT', { is_active: false }],
+    ['offices/12', 'PUT', { is_active: true }],
+  ]) {
+    let seen;
+    const errors = { message: 'Invalid office.', errors: { abbreviation: ['Already used.'] } };
+    const routes = handler(async (url, init) => {
+      seen = { url: String(url), init };
+      return Response.json(errors, { status: 422 });
+    });
+    const result = await routes[method](request(path, { method, body, cookie: '__Host-portal_session=central', headers: { Authorization: 'Bearer attacker' } }), context(path));
+    assert.equal(seen.url, 'http://backend/api/v1/' + path);
+    assert.equal(seen.init.method, method);
+    assert.deepEqual(JSON.parse(seen.init.body), body);
+    assert.equal(seen.init.headers.get('Authorization'), 'Bearer central');
+    assert.equal(result.status, 422);
+    assert.deepEqual(await result.json(), errors);
+    assert.equal(result.headers.get('Cache-Control'), 'no-store');
+  }
+});
+
+test('office management list forwards include_inactive and blocks cross-origin writes', async () => {
+  let seen;
+  const routes = handler(async (url) => { seen = String(url); return Response.json({ data: [] }); });
+  await routes.GET(request('offices?include_inactive=1', { method: 'GET' }), context('offices'));
+  assert.equal(seen, 'http://backend/api/v1/offices?include_inactive=1');
+  seen = null;
+  for (const [path, method] of [['offices', 'POST'], ['offices/12', 'PUT']]) {
+    for (const origin of [null, 'https://attacker.example']) {
+      const result = await routes[method](request(path, { method, origin }), context(path));
+      assert.equal(result.status, 403);
+    }
+  }
+  assert.equal(seen, null);
+});
+
+test('position management uses the central cookie and enforces the same write origin boundary', async () => {
+  for (const [path, method, body] of [
+    ['positions', 'POST', { title: 'Planning Officer I' }],
+    ['positions/12', 'PUT', { title: 'Planning Officer II' }],
+    ['positions/12', 'PUT', { is_active: false }],
+    ['positions/12', 'PUT', { is_active: true }],
+  ]) {
+    let seen;
+    const routes = handler(async (url, init) => {
+      seen = { url: String(url), init };
+      return Response.json({ data: { id: 12, title: 'Planning Officer I', is_active: true } });
+    });
+    const response = await routes[method](request(path, { method, body, cookie: '__Host-portal_session=central', headers: { Authorization: 'Bearer attacker' } }), context(path));
+    assert.equal(response.status, 200);
+    assert.equal(seen.url, 'http://backend/api/v1/' + path);
+    assert.deepEqual(JSON.parse(seen.init.body), body);
+    assert.equal(seen.init.headers.get('Authorization'), 'Bearer central');
+  }
+  let seen;
+  const routes = handler(async (url) => { seen = String(url); return Response.json({ data: [] }); });
+  await routes.GET(request('positions?include_inactive=1', { method: 'GET' }), context('positions'));
+  assert.equal(seen, 'http://backend/api/v1/positions?include_inactive=1');
+  seen = null;
+  for (const [path, method] of [['positions', 'POST'], ['positions/12', 'PUT']]) {
+    for (const origin of [null, 'https://attacker.example']) {
+      const response = await routes[method](request(path, { method, origin }), context(path));
+      assert.equal(response.status, 403);
+    }
+  }
+  assert.equal(seen, null);
 });
