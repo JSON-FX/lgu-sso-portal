@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowRight, Loader2 } from "lucide-react";
 import { toast } from "sonner";
@@ -48,6 +49,7 @@ export default function LoginPage() {
           {isLoading ? <><Loader2 className="animate-spin" /> Signing in…</> : <>Sign in <ArrowRight /></>}
         </Button>
       </form>
+      <p className="lp-registration-signin">New to LGU Portal? <Link href="/register">Create an account</Link></p>
     </AuthShell>
   );
 }

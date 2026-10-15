@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { format } from "date-fns";
 import { Loader2 } from "lucide-react";
 import { PortalStatus } from "@/components/portal/design";
@@ -44,16 +44,23 @@ function TextField({ id, label, value, onChange, error, required, type = "text",
   return <Field id={id} label={label} error={error}><Input id={id} type={type} value={value} onChange={(event) => onChange(event.target.value)} required={required} maxLength={maxLength} aria-invalid={!!error} /></Field>;
 }
 
-export function EmployeeForm({ initial, onSave, onCancel, submitLabel }: {
+export function EmployeeForm({ initial, onSave, onCancel, submitLabel, registration, referenceData, accountFields, afterFields, validateExtra }: {
   initial?: Employee;
   onSave: (values: EmployeeFormValues) => Promise<void>;
   onCancel: () => void;
   submitLabel: string;
+  registration?: boolean;
+  referenceData?: { offices: Office[]; positions: Position[] };
+  accountFields?: (errors: Record<string, string>, saving: boolean) => ReactNode;
+  afterFields?: (errors: Record<string, string>, saving: boolean) => ReactNode;
+  validateExtra?: () => Record<string, string>;
+
 }) {
   const [form, setForm] = useState<EmployeeFormValues>(() => initial ? fromEmployee(initial) : emptyForm);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitError, setSubmitError] = useState("");
   const [saving, setSaving] = useState(false);
+  const submitting = useRef(false);
   const [offices, setOffices] = useState<Office[]>([]);
   const [positions, setPositions] = useState<Position[]>([]);
   const [regions, setRegions] = useState<PSGCRegion[]>([]);
@@ -73,7 +80,7 @@ export function EmployeeForm({ initial, onSave, onCancel, submitLabel }: {
   useEffect(() => {
     let active = true;
     const load = async () => {
-      const [officeResult, positionResult, regionResult] = await Promise.allSettled([api.offices.list(), api.positions.list(), psgcApi.getRegions()]);
+      const [officeResult, positionResult, regionResult] = await Promise.allSettled([referenceData ? Promise.resolve({ data: referenceData.offices }) : api.offices.list(), referenceData ? Promise.resolve({ data: referenceData.positions }) : api.positions.list(), psgcApi.getRegions()]);
       if (!active) return;
       if (officeResult.status === "fulfilled") setOffices(officeResult.value.data);
       if (positionResult.status === "fulfilled") setPositions(positionResult.value.data);
@@ -93,7 +100,7 @@ export function EmployeeForm({ initial, onSave, onCancel, submitLabel }: {
     };
     void load();
     return () => { active = false; };
-  }, [initial]);
+  }, [initial, referenceData]);
 
   const chooseRegion = async (code: string) => {
     setErrors((old) => ({ ...old, region: "" }));
@@ -115,8 +122,11 @@ export function EmployeeForm({ initial, onSave, onCancel, submitLabel }: {
   };
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault(); setSubmitError("");
-    const problems: Record<string, string> = {};
+    event.preventDefault();
+    if (submitting.current) return;
+    setSubmitError("");
+    const problems: Record<string, string> = { ...validateExtra?.() };
+    if (registration && !form.email?.trim()) problems.email = "Enter your email address.";
     if (form.first_name.trim().length < 2) problems.first_name = "Enter at least 2 characters.";
     if (form.last_name.trim().length < 2) problems.last_name = "Enter at least 2 characters.";
     if (!form.birthday || form.birthday >= format(new Date(), "yyyy-MM-dd")) problems.birthday = "Choose a past date.";
@@ -127,16 +137,17 @@ export function EmployeeForm({ initial, onSave, onCancel, submitLabel }: {
     if (form.date_terminated && form.date_employed && form.date_terminated < form.date_employed) problems.date_terminated = "Termination date must follow the start date.";
     setErrors(problems); if (Object.keys(problems).length) return;
     const values = { ...form, first_name: form.first_name.trim(), last_name: form.last_name.trim(), residence: form.residence.trim(), email: form.email || undefined, middle_name: form.middle_name || undefined, suffix: form.suffix || undefined, date_employed: form.date_employed || undefined, date_terminated: form.date_terminated || undefined };
+    submitting.current = true;
     setSaving(true);
     try { await onSave(values); }
     catch (cause) {
       if (cause instanceof ApiError && cause.errors) setErrors(Object.fromEntries(Object.entries(cause.errors).map(([key, messages]) => [key, messages[0] || "Invalid value."])));
       setSubmitError(cause instanceof Error ? cause.message : "We couldn’t save this employee. Try again.");
-    } finally { setSaving(false); }
+    } finally { submitting.current = false; setSaving(false); }
   };
 
   return <form className="lp-admin-form" onSubmit={submit}>
-    <Section title="Personal information" description="Use the employee’s name as it appears in official records.">
+    <Section title="Personal information" description={registration ? "Use your name as it appears in official records." : "Use the employee’s name as it appears in official records."}>
       <TextField id="first_name" label="First name" value={form.first_name} onChange={(value) => set("first_name", value)} error={errors.first_name} required maxLength={255} />
       <TextField id="middle_name" label="Middle name" value={text("middle_name")} onChange={(value) => set("middle_name", value)} maxLength={255} />
       <TextField id="last_name" label="Last name" value={form.last_name} onChange={(value) => set("last_name", value)} error={errors.last_name} required maxLength={255} />
@@ -145,15 +156,15 @@ export function EmployeeForm({ initial, onSave, onCancel, submitLabel }: {
       <Field id="civil_status" label="Civil status" error={errors.civil_status}><PortalSelect id="civil_status" label="Civil status" value={form.civil_status} options={civilOptions} onValueChange={(value) => set("civil_status", value as EmployeeFormValues["civil_status"])} /></Field>
       <TextField id="nationality" label="Nationality" value={form.nationality} onChange={(value) => set("nationality", value)} error={errors.nationality} required maxLength={100} />
     </Section>
-    <Section title="Account" description="Employees complete password setup before accessing an application.">
-      <TextField id="email" label="Email address (optional)" type="email" value={text("email")} onChange={(value) => set("email", value)} error={errors.email} maxLength={255} />
-      {initial ? <div className="lp-admin-field"><Label>Username</Label><p>{initial.username}</p></div> : <div className="lp-admin-field"><Label>Username and temporary password</Label><p className="lp-admin-hint">Generated after you save the employee. The temporary password is shown once.</p></div>}
+    <Section title="Account" description={registration ? "Choose your password. Your username will be generated when you create your account." : "Employees complete password setup before accessing an application."}>
+      <TextField id="email" label={registration ? "Email address" : "Email address (optional)"} required={registration} type="email" value={text("email")} onChange={(value) => set("email", value)} error={errors.email} maxLength={255} />
+      {registration ? accountFields?.(errors, saving) : initial ? <div className="lp-admin-field"><Label>Username</Label><p>{initial.username}</p></div> : <div className="lp-admin-field"><Label>Username and temporary password</Label><p className="lp-admin-hint">Generated after you save the employee. The temporary password is shown once.</p></div>}
       {initial && <Field id="is_active" label="Account status"><PortalSelect id="is_active" label="Account status" value={form.is_active ? "active" : "inactive"} options={[{ value: "active", label: "Active" }, { value: "inactive", label: "Inactive" }]} onValueChange={(value) => set("is_active", value === "active")} /></Field>}
     </Section>
-    <Section title="Employment" description="Keep office assignment and service dates current.">
+    <Section title="Employment" description={registration ? "Office and position are optional. These details do not verify your employment or grant a higher role." : "Keep office assignment and service dates current."}>
       <Field id="office_id" label="Office" error={errors.office_id}><PortalSelect id="office_id" label="Office" searchable value={String(form.office_id || "")} options={offices.map((office) => ({ value: String(office.id), label: `${office.abbreviation} · ${office.name}` }))} placeholder={initial?.office?.name || "Select office"} disabled={!offices.length} onValueChange={(value) => set("office_id", Number(value))} /></Field>
       <Field id="position_id" label="Position" error={errors.position_id}><PortalSelect id="position_id" label="Position" searchable value={String(form.position_id || "")} options={positions.map((position) => ({ value: String(position.id), label: position.title }))} placeholder={initial?.position?.title || "Select position"} disabled={!positions.length} onValueChange={(value) => set("position_id", Number(value))} /></Field>
-      <Field id="date_employed" label="Employment start date" error={errors.date_employed}><PortalDatePicker id="date_employed" label="Employment start date" value={text("date_employed")} onValueChange={(value) => set("date_employed", value)} /></Field>
+      {!registration && <Field id="date_employed" label="Employment start date" error={errors.date_employed}><PortalDatePicker id="date_employed" label="Employment start date" value={text("date_employed")} onValueChange={(value) => set("date_employed", value)} /></Field>}
       {initial && <Field id="date_terminated" label="Termination date" error={errors.date_terminated}><PortalDatePicker id="date_terminated" label="Termination date" value={text("date_terminated")} min={text("date_employed") || undefined} onValueChange={(value) => set("date_terminated", value)} /></Field>}
     </Section>
     <Section title="Residential address" description="Region, province, city or municipality, and barangay are required. Street details are optional.">
@@ -167,7 +178,8 @@ export function EmployeeForm({ initial, onSave, onCancel, submitLabel }: {
       <TextField id="building_floor" label="Building or floor (optional)" value={text("building_floor")} onChange={(value) => set("building_floor", value)} error={errors.building_floor} maxLength={50} />
       <Field id="residence" label="Street address (optional)" error={errors.residence}><Textarea id="residence" value={form.residence} onChange={(event) => set("residence", event.target.value)} maxLength={500} aria-invalid={!!errors.residence} rows={2} /></Field>
     </Section>
-    {submitError && <PortalStatus kind="error" title="Employee could not be saved.">{submitError}</PortalStatus>}
+    {afterFields?.(errors, saving)}
+    {submitError && <PortalStatus kind="error" title={registration ? "Account could not be created." : "Employee could not be saved."}>{submitError}</PortalStatus>}
     <div className="lp-admin-form-actions"><Button type="button" variant="outline" onClick={onCancel} disabled={saving}>Cancel</Button><Button type="submit" disabled={saving}>{saving && <Loader2 className="size-4 animate-spin" />}{submitLabel}</Button></div>
   </form>;
 }

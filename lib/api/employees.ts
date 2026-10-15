@@ -42,6 +42,10 @@ export const employeeApi = {
     return apiClient.put<SingleResponse<Employee>>(`/employees/${uuid}`, data);
   },
 
+  async resetPassword(uuid: string): Promise<{ data: { uuid: string; username: string; must_change_password: boolean }; temporary_password: string }> {
+    return apiClient.post(`/employees/${uuid}/reset-password`, {});
+  },
+
   async delete(uuid: string): Promise<void> {
     await apiClient.delete(`/employees/${uuid}`);
   },

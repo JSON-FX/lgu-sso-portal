@@ -76,3 +76,12 @@ npm run build
 ### Shared profile photos
 
 Employees and SSO super administrators can upload, replace and remove the shared default photo. Applications read it through the confidential directory photo endpoint and may keep a local override. See [integration guide](LGU-SSO-INTEGRATION-GUIDE.md#shared-employee-profile-photos).
+
+
+## Account registration and recovery
+
+`/register` is public and linked from sign-in. Users enter their details, choose a password and optionally select applications. The backend assigns LGU Connect Standard and other public applications Guest. The success view displays the generated username; users then sign in. Only superadministrators can change roles. Administrator application management is excluded from signup choices.
+
+Superadministrators can generate a one-time temporary password from an employee's detail page. Existing sessions end, and the employee must choose a different personal password at next sign-in. Temporary credentials remain only in the open dialog and are cleared on Done. The acting administrator uses Change my password for their own account.
+
+The local design catalog includes `Pages/Self registration` states. See `docs/storybook-source-sync.md` for canonical component sources. Public signup is not identity or employment verification.

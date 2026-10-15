@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, ArrowRight, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { EmployeePasswordReset } from "@/components/portal/employee-password-reset";
 import { ProfilePhoto } from "@/components/portal/profile-photo";
 import { EmployeeForm, type EmployeeFormValues } from "@/components/portal/employee-form";
 import { PortalStatus } from "@/components/portal/design";
@@ -47,6 +48,7 @@ export default function EmployeeDetailPage() {
       <header className="lp-admin-heading"><div><p className="lp-admin-eyebrow">Employee record</p><h1>{employee.full_name}</h1><p className="lp-admin-description">Keep personal, employment, and account information in one record.</p></div><Button variant="outline" asChild><Link href={`/employees/${uuid}/applications`}>Manage access<ArrowRight aria-hidden="true" /></Link></Button></header>
       <ProfilePhoto employee={employee} administrator onSaved={(updated) => setEmployee((old) => old ? { ...old, avatar_version: updated.avatar_version, avatar_endpoint: updated.avatar_endpoint } : old)} />
       <EmployeeForm key={uuid} initial={employee} onSave={save} onCancel={() => router.push("/employees")} submitLabel="Save changes" />
+      <EmployeePasswordReset key={`password-reset-${uuid}`} employee={employee} onReset={() => setEmployee((old) => old ? { ...old, must_change_password: true } : old)} />
       <section className="lp-admin-section lp-admin-danger"><div className="lp-admin-section-heading"><h2>Delete employee</h2><p>Deleting the employee ends their sessions and removes all application grants.</p></div><Button variant="destructive" onClick={() => setConfirmDelete(true)}><Trash2 aria-hidden="true" />Delete employee</Button></section>
       <Dialog open={confirmDelete} onOpenChange={setConfirmDelete}><DialogContent><DialogHeader><DialogTitle>Delete {employee.full_name}?</DialogTitle><DialogDescription>This permanently removes the employee record and their application access.</DialogDescription></DialogHeader>{deleteError && <PortalStatus kind="error" title="Deletion failed.">{deleteError}</PortalStatus>}<DialogFooter><Button variant="outline" onClick={() => setConfirmDelete(false)} disabled={deleting}>Cancel</Button><Button variant="destructive" onClick={() => void remove()} disabled={deleting}>{deleting ? "Deleting…" : "Delete employee"}</Button></DialogFooter></DialogContent></Dialog>
     </>}

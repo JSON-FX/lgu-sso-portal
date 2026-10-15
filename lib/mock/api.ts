@@ -32,6 +32,7 @@ import {
   ApplicationEmployee,
 } from "@/types";
 
+import type { RegisterData, RegisterResponse, RegistrationOptions } from "@/types/auth";
 import { UpdatePortalProfileData } from "@/types/portal";
 import { ApiError } from "@/lib/api/client";
 
@@ -108,65 +109,41 @@ export const mockAuthApi = {
     throw new Error("Invalid credentials.");
   },
 
-  async register({ first_name, middle_name, last_name }: { first_name: string; middle_name?: string; last_name: string }): Promise<{ username: string; message: string }> {
+  async registrationOptions(): Promise<{ data: RegistrationOptions }> {
+    await delay();
+    return { data: {
+      applications: applications.filter((app) => app.is_active && app.name !== "Admin App Management System").map((app) => ({ uuid: app.uuid, name: app.name, description: app.description || null, default_role: app.name === "LGU Connect" ? "standard" : "guest" })),
+      offices: mockOffices,
+      positions: mockPositions,
+    } };
+  },
+
+  async register(data: RegisterData): Promise<RegisterResponse> {
     await delay(500);
-
-    // Generate username: first_initial.last_name lowercased, remove spaces from last name
-    const firstInitial = first_name[0].toLowerCase();
-    const normalizedLastName = last_name.toLowerCase().replace(/\s+/g, "");
-    const baseUsername = `${firstInitial}.${normalizedLastName}`;
+    const { first_name, middle_name, last_name } = data;
+    const baseUsername = `${first_name[0].toLowerCase()}.${last_name.toLowerCase().replace(/\s+/g, "")}`;
     let username = baseUsername;
-
-    // Check for collision, append number if needed
     let counter = 1;
-    while (employees.some((e) => e.username === username)) {
-      counter++;
-      username = `${baseUsername}${counter}`;
-    }
-
-    // Create new employee
-    const newEmployee: Employee = {
-      uuid: `emp-${generateUUID()}`,
-      first_name,
-      middle_name: middle_name || null,
-      last_name,
-      suffix: null,
-      full_name: [first_name, middle_name, last_name].filter(Boolean).join(" "),
-      initials: [first_name[0], middle_name?.[0], last_name[0]].filter(Boolean).join("."),
-      birthday: "2000-01-01",
-      age: 26,
-      civil_status: "single",
-      email: `${username}@lgu.gov.ph`,
-      username,
-      must_change_password: true,
-      is_active: true,
-      nationality: "Filipino",
-      residence: "",
-      block_number: null,
-      building_floor: null,
-      house_number: null,
-      region: null,
-      province: null,
-      city: null,
-      barangay: null,
-      office: null,
-      position: null,
-      date_employed: null,
-      date_terminated: null,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      applications: applications
-        .filter((app) => app.is_active)
-        .map((app) => ({
-          uuid: app.uuid,
-          name: app.name,
-          role: "guest" as Role,
-        })),
+    while (employees.some((employee) => employee.username === username)) username = `${baseUsername}${++counter}`;
+    if (employees.some((employee) => employee.email === data.email)) throw new ApiError("This email address is already in use. Sign in or contact your administrator.", 422, { email: ["This email address is already in use."] });
+    const grants: RegisterResponse["applications"] = applications.filter((app) => data.applications.includes(app.uuid) && app.is_active && app.name !== "Admin App Management System").map((app) => ({ uuid: app.uuid, name: app.name, role: app.name === "LGU Connect" ? "standard" : "guest" }));
+    // Fictional local fixtures only. Passwords are never stored by the mock.
+    const employee: Employee = {
+      uuid: `emp-${generateUUID()}`, first_name, middle_name: middle_name || null, last_name,
+      suffix: data.suffix || null, full_name: [first_name, middle_name, last_name].filter(Boolean).join(" "),
+      initials: [first_name[0], last_name[0]].join("."), birthday: data.birthday, age: 26,
+      civil_status: data.civil_status, email: data.email, username, must_change_password: false,
+      is_active: true, nationality: data.nationality, residence: data.residence || null,
+      block_number: data.block_number || null, building_floor: data.building_floor || null,
+      house_number: data.house_number || null, region: data.region, province: data.province,
+      city: data.city, barangay: data.barangay,
+      office: mockOffices.find((office) => office.id === data.office_id) || null,
+      position: mockPositions.find((position) => position.id === data.position_id) || null,
+      date_employed: null, date_terminated: null,
+      created_at: new Date().toISOString(), updated_at: new Date().toISOString(), applications: grants,
     };
-
-    employees.unshift(newEmployee);
-
-    return { username, message: "Registration successful" };
+    employees.unshift(employee);
+    return { username, message: "Your account is ready. Sign in with your password.", applications: grants };
   },
 
   async changePassword({ current_password, new_password }: { current_password: string; new_password: string }): Promise<MessageResponse> {
@@ -368,6 +345,17 @@ export const mockEmployeeApi = {
 
     employees.unshift(newEmployee);
     return { data: newEmployee };
+  },
+
+  async resetPassword(uuid: string) {
+    await delay(400);
+    const employee = employees.find((item) => item.uuid === uuid);
+    if (!employee) throw new Error("Employee not found.");
+    employee.must_change_password = true;
+    return {
+      data: { uuid, username: employee.username, must_change_password: true },
+      temporary_password: "Demo-temporary-12345",
+    };
   },
 
   async update(uuid: string, data: UpdateEmployeeData): Promise<SingleResponse<Employee>> {

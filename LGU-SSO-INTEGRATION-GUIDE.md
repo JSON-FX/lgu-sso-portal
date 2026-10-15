@@ -47,7 +47,7 @@ Successful response:
 {"access_token":"<application bearer>","token_type":"bearer","expires_in":86400}
 ```
 
-Use the returned `expires_in`; the example is not a guaranteed lifetime. The code expires after 60 seconds. The exact application, callback, source central session, employee status, password setup, and current application grant must still be valid. A consumed or expired code cannot be reused. Do not retry an ambiguous exchange indefinitely; restart sign-in with a new state if the response is lost.
+Use the returned `expires_in`; the example is not a guaranteed lifetime. A JSON `null` explicitly means the configured JWT has no `exp` claim. Consumers must still enforce a bounded local session and recheck current authorization and revocation. Missing, zero, negative, or malformed expiry is not the null contract. The code expires after 60 seconds. The exact application, callback, source central session, employee status, password setup, and current application grant must still be valid. A consumed or expired code cannot be reused. Do not retry an ambiguous exchange indefinitely; restart sign-in with a new state if the response is lost.
 
 ## Authorize every protected request
 

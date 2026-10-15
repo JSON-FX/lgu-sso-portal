@@ -2,6 +2,7 @@
 @import "tw-animate-css";
 @import "./portal-design.css";
 @import "./offices.css";
+@import "./registration.css";
 
 @custom-variant dark (&:is(.dark *));
 

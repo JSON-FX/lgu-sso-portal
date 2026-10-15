@@ -55,3 +55,12 @@ The owner annotations require region, province, city/municipality and barangay. 
 | `projects/lgu-portal/src/selection.stories.tsx` | `0b91243f9fc84f56fde3218018a451deba63882e86930c93f5c8cbffb3083941` |
 
 Official `@shadcn/command` and `@shadcn/popover` source and combobox demo were inspected through the MCP registry. The command source was also obtained through the official CLI view command. Storybook typecheck, full catalog build and Docker publication passed; the required/error selection state and keyboard selection were inspected before application integration. The live form and release are verified separately.
+
+## Self-registration source sync — 2026-10-15
+
+Public Index registration extends the existing employee form. The canonical layout, application choices and success components were explicitly synchronized from `storybook-hub/packages/lgu-portal-ui/src/registration.tsx` into `components/portal/registration.tsx`; only UI import paths differ. The canonical `registration.css` was copied into `app/registration.css`. Official shadcn new-york Checkbox source and examples were inspected through MCP; existing upstream primitives were reused without overwriting customizations.
+
+- `packages/lgu-portal-ui/src/registration.tsx` SHA-256: `0eba47d9b1146d39c342e4a026444a8aa13a52ae4ae25195756538a055adc5c7`
+- `packages/lgu-portal-ui/src/registration.css` SHA-256: `993de23ffcd201d4d89c716758b31e534f8413305e74bf6a26dcd9a8b642cbee`
+
+Stories: `Pages/Self registration` includes default/mobile, loading, unavailable/retry, empty choices, validation, pending and created states. Catalog records are fictional. Personal/address fields are visual fixtures; consuming Portal validation and geography use the shared EmployeeForm. Open registration implies no identity or employment verification. Backend role assignment is authoritative. This sync is local and does not claim staging or production deployment.

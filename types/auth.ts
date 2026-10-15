@@ -1,19 +1,34 @@
-import { Employee, EmployeeApplication } from "./employee";
+import { CreateEmployeeData, Employee, EmployeeApplication, Office, Position } from "./employee";
 
 export interface LoginCredentials {
   username: string;
   password: string;
 }
 
-export interface RegisterData {
-  first_name: string;
-  middle_name?: string;
-  last_name: string;
+export interface RegistrationApplication {
+  uuid: string;
+  name: string;
+  description: string | null;
+  default_role: "guest" | "standard";
+}
+
+export interface RegistrationOptions {
+  applications: RegistrationApplication[];
+  offices: Office[];
+  positions: Position[];
+}
+
+export interface RegisterData extends Omit<CreateEmployeeData, "password" | "email" | "date_terminated" | "date_employed"> {
+  email: string;
+  password: string;
+  password_confirmation: string;
+  applications: string[];
 }
 
 export interface RegisterResponse {
   username: string;
   message: string;
+  applications: { uuid: string; name: string; role: "guest" | "standard" }[];
 }
 
 export interface ChangePasswordData {

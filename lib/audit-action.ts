@@ -1,4 +1,6 @@
 export const auditActionLabels = {
+  employee_password_reset: "Employee password reset",
+  self_registered: "Self registration",
   login: "Signed in",
   logout: "Signed out",
   logout_all: "Signed out everywhere",

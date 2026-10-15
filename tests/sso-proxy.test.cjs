@@ -75,7 +75,7 @@ test('denies cross-origin and missing-origin writes even with spoofed forwarded 
 
 test('does not expose consumer exchange or cookie endpoints through the portal proxy', async () => {
   const routes = handler(async () => { throw Error('must not fetch'); });
-  for (const path of ['sso/exchange', 'sso/check', 'sso/authorize', 'sso/validate', 'auth/register', 'employees/../auth']) {
+  for (const path of ['sso/exchange', 'sso/check', 'sso/authorize', 'sso/validate', 'employees/../auth']) {
     assert.equal((await routes.POST(request(path), context(path))).status, 404);
   }
 });
@@ -208,4 +208,49 @@ test('photo proxy returns exact private image bytes and bounds uploads', async (
   });
   assert.equal((await limited.POST(req, context('portal/profile/avatar'))).status, 413);
   assert.equal(fetched, false);
+});
+
+test('public registration forwards personal details without issuing a session cookie', async () => {
+  const body = { first_name: 'Maria', last_name: 'Santos', email: 'maria@example.test', password: 'Fictional123', password_confirmation: 'Fictional123', applications: ['example'] };
+  let seen;
+  const routes = handler(async (url, init) => {
+    seen = { url: String(url), init };
+    return Response.json({ username: 'm.santos', applications: [] }, { status: 201 });
+  });
+  const response = await routes.POST(request('auth/register', { body }), context('auth/register'));
+  assert.equal(response.status, 201);
+  assert.equal(seen.url, 'http://backend/api/v1/auth/register');
+  assert.deepEqual(JSON.parse(new TextDecoder().decode(seen.init.body)), body);
+  assert.equal(seen.init.headers.get('Authorization'), null);
+  assert.equal(response.headers.getSetCookie().length, 0);
+  assert.equal(response.headers.get('Cache-Control'), 'no-store');
+  assert.equal((await response.json()).username, 'm.santos');
+});
+
+test('public registration options load without authentication and unsafe writes are denied', async () => {
+  let calls = 0;
+  const routes = handler(async () => { calls++; return Response.json({ data: { applications: [] } }); });
+  const options = await routes.GET(request('auth/registration-options', { method: 'GET' }), context('auth/registration-options'));
+  assert.equal(options.status, 200);
+  for (const origin of [null, 'https://attacker.example']) {
+    assert.equal((await routes.POST(request('auth/register', { origin }), context('auth/register'))).status, 403);
+  }
+  assert.equal(calls, 1);
+});
+
+test('employee password reset requires same-origin writes and returns one-time credentials without caching', async () => {
+  let seen;
+  const path = 'employees/example/reset-password';
+  const body = { data: { username: 'm.santos', must_change_password: true }, temporary_password: 'Fictional-temporary123' };
+  const routes = handler(async (url, init) => { seen = { url: String(url), init }; return Response.json(body); });
+  for (const origin of [null, 'https://attacker.example']) {
+    assert.equal((await routes.POST(request(path, { origin }), context(path))).status, 403);
+  }
+  assert.equal(seen, undefined);
+  const response = await routes.POST(request(path, { cookie: '__Host-portal_session=admin', headers: { Authorization: 'Bearer untrusted' } }), context(path));
+  assert.equal(seen.url, 'http://backend/api/v1/' + path);
+  assert.equal(seen.init.headers.get('Authorization'), 'Bearer admin');
+  assert.equal(response.headers.get('Cache-Control'), 'no-store');
+  assert.deepEqual(await response.json(), body);
+  assert.equal(response.headers.getSetCookie().length, 0);
 });
