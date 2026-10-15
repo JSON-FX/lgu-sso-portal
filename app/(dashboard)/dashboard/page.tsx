@@ -9,14 +9,11 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { auditActionLabel } from "@/lib/audit-action";
 import { api } from "@/lib/api";
 import type { AuditLog } from "@/types";
 
 type Stats = Awaited<ReturnType<typeof api.stats.getDashboardStats>>;
-const actionLabel: Record<AuditLog["action"], string> = {
-  login: "Signed in", logout: "Signed out", logout_all: "Signed out everywhere",
-  token_refresh: "Session refreshed", token_validate: "Session validated", app_authorize: "Application authorized",
-};
 
 export default function DashboardPage() {
   const [stats, setStats] = useState<Stats | null>(null);
@@ -47,10 +44,10 @@ export default function DashboardPage() {
       <Button variant="ghost" asChild><Link href="/employees">Review employee access<ArrowRight aria-hidden="true" /></Link></Button>
     </div>
     <section className="lp-admin-section" aria-labelledby="recent-activity"><div className="lp-admin-section-heading"><h2 id="recent-activity">Recent activity</h2><p>Latest identity and access events.</p></div>
-      {loading ? <div role="status" aria-label="Loading recent activity" className="space-y-3">{[1, 2, 3].map((item) => <Skeleton key={item} className="h-16 w-full" />)}</div> : activityError ? <PortalStatus kind="error" title="Recent activity is unavailable." action={<Button variant="outline" onClick={() => void load()}>Try again</Button>} /> : activity.length ? <div className="lp-admin-table"><Table><TableHeader><TableRow><TableHead>Time</TableHead><TableHead>Event</TableHead><TableHead>Actor</TableHead><TableHead className="text-right">Details</TableHead></TableRow></TableHeader><TableBody>{activity.map((log) => <TableRow key={log.id}><TableCell><time dateTime={log.created_at}>{formatDistanceToNow(new Date(log.created_at), { addSuffix: true })}</time></TableCell><TableCell><strong>{actionLabel[log.action]}</strong><small>{log.application?.name || "LGU Portal"}</small></TableCell><TableCell>{log.employee?.full_name || "System"}</TableCell><TableCell className="text-right"><Button variant="ghost" size="sm" onClick={() => setSelected(log)} aria-label={`View ${actionLabel[log.action].toLowerCase()} event`}>View<ArrowRight aria-hidden="true" /></Button></TableCell></TableRow>)}</TableBody></Table></div> : <PortalStatus kind="empty" title="No recent activity.">Authentication events will appear here as they occur.</PortalStatus>}
+      {loading ? <div role="status" aria-label="Loading recent activity" className="space-y-3">{[1, 2, 3].map((item) => <Skeleton key={item} className="h-16 w-full" />)}</div> : activityError ? <PortalStatus kind="error" title="Recent activity is unavailable." action={<Button variant="outline" onClick={() => void load()}>Try again</Button>} /> : activity.length ? <div className="lp-admin-table"><Table><TableHeader><TableRow><TableHead>Time</TableHead><TableHead>Event</TableHead><TableHead>Actor</TableHead><TableHead className="text-right">Details</TableHead></TableRow></TableHeader><TableBody>{activity.map((log) => <TableRow key={log.id}><TableCell><time dateTime={log.created_at}>{formatDistanceToNow(new Date(log.created_at), { addSuffix: true })}</time></TableCell><TableCell><strong>{auditActionLabel(log.action)}</strong><small>{log.application?.name || "LGU Portal"}</small></TableCell><TableCell>{log.employee?.full_name || "System"}</TableCell><TableCell className="text-right"><Button variant="ghost" size="sm" onClick={() => setSelected(log)} aria-label={`View ${auditActionLabel(log.action).toLowerCase()} event`}>View<ArrowRight aria-hidden="true" /></Button></TableCell></TableRow>)}</TableBody></Table></div> : <PortalStatus kind="empty" title="No recent activity.">Authentication events will appear here as they occur.</PortalStatus>}
       <Button variant="ghost" asChild><Link href="/audit">Open audit log<ArrowRight aria-hidden="true" /></Link></Button>
     </section>
     <div className="lp-admin-note"><ShieldCheck aria-hidden="true" /><p><strong>Access follows the employee.</strong><br />Deactivating an employee ends their sessions. Removing an application grant ends access to that application.</p></div>
-    <Dialog open={!!selected} onOpenChange={(open) => !open && setSelected(null)}><DialogContent><DialogHeader><DialogTitle>{selected ? actionLabel[selected.action] : "Event"}</DialogTitle><DialogDescription>Recorded authentication activity</DialogDescription></DialogHeader>{selected && <dl className="lp-admin-details"><dt>Employee</dt><dd>{selected.employee?.full_name || "System"}</dd><dt>Application</dt><dd>{selected.application?.name || "LGU Portal"}</dd><dt>Time</dt><dd>{new Date(selected.created_at).toLocaleString()}</dd><dt>IP address</dt><dd>{selected.ip_address || "Unavailable"}</dd></dl>}</DialogContent></Dialog>
+    <Dialog open={!!selected} onOpenChange={(open) => !open && setSelected(null)}><DialogContent><DialogHeader><DialogTitle>{selected ? auditActionLabel(selected.action) : "Event"}</DialogTitle><DialogDescription>Recorded authentication activity</DialogDescription></DialogHeader>{selected && <dl className="lp-admin-details"><dt>Employee</dt><dd>{selected.employee?.full_name || "System"}</dd><dt>Application</dt><dd>{selected.application?.name || "LGU Portal"}</dd><dt>Time</dt><dd>{new Date(selected.created_at).toLocaleString()}</dd><dt>IP address</dt><dd>{selected.ip_address || "Unavailable"}</dd></dl>}</DialogContent></Dialog>
   </div>;
 }
