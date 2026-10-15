@@ -1,14 +1,10 @@
-export type AuditAction =
-  | "login"
-  | "logout"
-  | "logout_all"
-  | "token_refresh"
-  | "token_validate"
-  | "app_authorize";
+import type { auditActionLabels } from "@/lib/audit-action";
+
+export type AuditAction = keyof typeof auditActionLabels;
 
 export interface AuditLog {
   id: number;
-  action: AuditAction;
+  action: string;
   employee: {
     uuid: string;
     full_name: string;
