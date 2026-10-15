@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils";
 
 export type PortalOption = { value: string; label: string; disabled?: boolean };
 
-export function PortalSelect({ id, label, value, onValueChange, options, placeholder = "Select an option", disabled, searchable = false }: {
+export function PortalSelect({ id, label, value, onValueChange, options, placeholder = "Select an option", disabled, searchable = false, required, invalid, describedBy }: {
   id?: string;
   label: string;
   value: string;
@@ -21,13 +21,16 @@ export function PortalSelect({ id, label, value, onValueChange, options, placeho
   placeholder?: string;
   disabled?: boolean;
   searchable?: boolean;
+  required?: boolean;
+  invalid?: boolean;
+  describedBy?: string;
 }) {
   const [open, setOpen] = useState(false);
   if (searchable || options.length > 8) {
     return (
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
-          <Button id={id} type="button" variant="outline" role="combobox" aria-label={label} aria-expanded={open} disabled={disabled} className="min-h-11 w-full justify-between text-left font-normal">
+          <Button id={id} type="button" variant="outline" role="combobox" aria-label={label} aria-expanded={open} aria-required={required} aria-invalid={invalid} aria-describedby={describedBy} disabled={disabled} className="min-h-11 w-full justify-between text-left font-normal aria-invalid:border-destructive">
             <span className="truncate">{options.find((option) => option.value === value)?.label || placeholder}</span>
             <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" aria-hidden="true" />
           </Button>
@@ -41,7 +44,7 @@ export function PortalSelect({ id, label, value, onValueChange, options, placeho
                 {options.map((option) => (
                   <CommandItem key={option.value} value={`${option.label} ${option.value}`} disabled={option.disabled} onSelect={() => { onValueChange(option.value); setOpen(false); }}>
                     <Check className={cn("mr-2 size-4", value === option.value ? "opacity-100" : "opacity-0")} aria-hidden="true" />
-                    {option.label}
+                    <span className="min-w-0 flex-1 whitespace-normal break-words">{option.label}</span>
                   </CommandItem>
                 ))}
               </CommandGroup>
@@ -53,7 +56,7 @@ export function PortalSelect({ id, label, value, onValueChange, options, placeho
   }
   return (
     <Select value={value || undefined} onValueChange={onValueChange} disabled={disabled}>
-      <SelectTrigger id={id} aria-label={label} className="min-h-11 w-full"><SelectValue placeholder={placeholder} /></SelectTrigger>
+      <SelectTrigger id={id} aria-label={label} aria-required={required} aria-invalid={invalid} aria-describedby={describedBy} className="min-h-11 w-full"><SelectValue placeholder={placeholder} /></SelectTrigger>
       <SelectContent>{options.map((option) => <SelectItem key={option.value} value={option.value} disabled={option.disabled}>{option.label}</SelectItem>)}</SelectContent>
     </Select>
   );

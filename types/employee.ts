@@ -38,7 +38,7 @@ export interface Employee {
   must_change_password: boolean;
   is_active: boolean;
   nationality: string;
-  residence: string;
+  residence: string | null;
   block_number: string | null;
   building_floor: string | null;
   house_number: string | null;
@@ -70,14 +70,14 @@ export interface CreateEmployeeData {
   suffix?: string;
   birthday: string;
   civil_status: Employee["civil_status"];
-  region?: string;
-  province?: string;
-  city?: string;
-  barangay?: string;
+  region: string;
+  province: string;
+  city: string;
+  barangay: string;
   block_number?: string;
   building_floor?: string;
   house_number?: string;
-  residence: string;
+  residence?: string | null;
   nationality: string;
   email?: string;
   password?: string;
@@ -101,7 +101,7 @@ export interface UpdateEmployeeData {
   block_number?: string;
   building_floor?: string;
   house_number?: string;
-  residence?: string;
+  residence?: string | null;
   nationality?: string;
   email?: string;
   is_active?: boolean;

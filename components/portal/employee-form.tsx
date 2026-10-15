@@ -13,7 +13,7 @@ import { api, ApiError } from "@/lib/api";
 import { psgcApi, type PSGCBarangay, type PSGCMunicipality, type PSGCProvince, type PSGCRegion } from "@/lib/api/psgc";
 import type { CreateEmployeeData, Employee, Office, Position } from "@/types";
 
-export type EmployeeFormValues = CreateEmployeeData & { is_active?: boolean };
+export type EmployeeFormValues = CreateEmployeeData & { is_active?: boolean; residence: string };
 const emptyForm: EmployeeFormValues = {
   first_name: "", middle_name: "", last_name: "", suffix: "", birthday: "", civil_status: "single",
   nationality: "Filipino", email: "", office_id: undefined, position_id: undefined,
@@ -36,7 +36,7 @@ function Section({ title, description, children }: { title: string; description:
   return <section className="lp-admin-section"><div className="lp-admin-section-heading"><h2>{title}</h2><p>{description}</p></div><div className="lp-admin-fields">{children}</div></section>;
 }
 function Field({ id, label, error, children }: { id: string; label: string; error?: string; children: ReactNode }) {
-  return <div className="lp-admin-field"><Label htmlFor={id}>{label}</Label>{children}{error && <p className="lp-admin-error" role="alert">{error}</p>}</div>;
+  return <div className="lp-admin-field"><Label htmlFor={id}>{label}</Label>{children}{error && <p id={`${id}-error`} className="lp-admin-error" role="alert">{error}</p>}</div>;
 }
 function TextField({ id, label, value, onChange, error, required, type = "text", maxLength }: {
   id: string; label: string; value: string; onChange: (value: string) => void; error?: string; required?: boolean; type?: string; maxLength?: number;
@@ -64,7 +64,10 @@ export function EmployeeForm({ initial, onSave, onCancel, submitLabel }: {
   const [provinceCode, setProvinceCode] = useState("");
   const [cityCode, setCityCode] = useState("");
   const [locationError, setLocationError] = useState(false);
-  const set = <K extends keyof EmployeeFormValues>(key: K, value: EmployeeFormValues[K]) => setForm((old) => ({ ...old, [key]: value }));
+  const set = <K extends keyof EmployeeFormValues>(key: K, value: EmployeeFormValues[K]) => {
+    setForm((old) => ({ ...old, [key]: value }));
+    setErrors((old) => ({ ...old, [key]: "" }));
+  };
   const text = (key: keyof EmployeeFormValues) => String(form[key] ?? "");
 
   useEffect(() => {
@@ -93,16 +96,19 @@ export function EmployeeForm({ initial, onSave, onCancel, submitLabel }: {
   }, [initial]);
 
   const chooseRegion = async (code: string) => {
+    setErrors((old) => ({ ...old, region: "" }));
     setRegionCode(code); setProvinceCode(""); setCityCode(""); setProvinces([]); setCities([]); setBarangays([]);
     setForm((old) => ({ ...old, region: regions.find((item) => item.code === code)?.name || "", province: "", city: "", barangay: "" }));
     try { if (code) setProvinces(await psgcApi.getProvinces(code)); } catch { setLocationError(true); }
   };
   const chooseProvince = async (code: string) => {
+    setErrors((old) => ({ ...old, province: "" }));
     setProvinceCode(code); setCityCode(""); setCities([]); setBarangays([]);
     setForm((old) => ({ ...old, province: provinces.find((item) => item.code === code)?.name || "", city: "", barangay: "" }));
     try { if (code) setCities(await psgcApi.getMunicipalities(code)); } catch { setLocationError(true); }
   };
   const chooseCity = async (code: string) => {
+    setErrors((old) => ({ ...old, city: "" }));
     setCityCode(code); setBarangays([]);
     setForm((old) => ({ ...old, city: cities.find((item) => item.code === code)?.name || "", barangay: "" }));
     try { if (code) setBarangays(await psgcApi.getBarangays(code)); } catch { setLocationError(true); }
@@ -115,7 +121,9 @@ export function EmployeeForm({ initial, onSave, onCancel, submitLabel }: {
     if (form.last_name.trim().length < 2) problems.last_name = "Enter at least 2 characters.";
     if (!form.birthday || form.birthday >= format(new Date(), "yyyy-MM-dd")) problems.birthday = "Choose a past date.";
     if (!form.nationality?.trim()) problems.nationality = "Nationality is required.";
-    if (!form.residence.trim()) problems.residence = "Street address is required.";
+    for (const [key, label] of [["region", "region"], ["province", "province"], ["city", "city or municipality"], ["barangay", "barangay"]] as const) {
+      if (!form[key].trim()) problems[key] = `Choose a ${label}.`;
+    }
     if (form.date_terminated && form.date_employed && form.date_terminated < form.date_employed) problems.date_terminated = "Termination date must follow the start date.";
     setErrors(problems); if (Object.keys(problems).length) return;
     const values = { ...form, first_name: form.first_name.trim(), last_name: form.last_name.trim(), residence: form.residence.trim(), email: form.email || undefined, middle_name: form.middle_name || undefined, suffix: form.suffix || undefined, date_employed: form.date_employed || undefined, date_terminated: form.date_terminated || undefined };
@@ -148,16 +156,16 @@ export function EmployeeForm({ initial, onSave, onCancel, submitLabel }: {
       <Field id="date_employed" label="Employment start date" error={errors.date_employed}><PortalDatePicker id="date_employed" label="Employment start date" value={text("date_employed")} onValueChange={(value) => set("date_employed", value)} /></Field>
       {initial && <Field id="date_terminated" label="Termination date" error={errors.date_terminated}><PortalDatePicker id="date_terminated" label="Termination date" value={text("date_terminated")} min={text("date_employed") || undefined} onValueChange={(value) => set("date_terminated", value)} /></Field>}
     </Section>
-    <Section title="Residential address" description="Choose the employee’s location, then enter street details.">
-      {locationError && <div className="lp-admin-field lp-admin-span"><PortalStatus kind="error" title="Address choices are unavailable.">You can still save the other details. Reload to try again.</PortalStatus></div>}
-      <Field id="region" label="Region" error={errors.region}><PortalSelect id="region" label="Region" searchable value={regionCode} options={placeOptions(regions)} placeholder={text("region") || "Select region"} disabled={locationError} onValueChange={(value) => void chooseRegion(value)} /></Field>
-      <Field id="province" label="Province" error={errors.province}><PortalSelect id="province" label="Province" searchable value={provinceCode} options={placeOptions(provinces)} placeholder={text("province") || "Select province"} disabled={!regionCode || locationError} onValueChange={(value) => void chooseProvince(value)} /></Field>
-      <Field id="city" label="City or municipality" error={errors.city}><PortalSelect id="city" label="City or municipality" searchable value={cityCode} options={placeOptions(cities)} placeholder={text("city") || "Select city or municipality"} disabled={!provinceCode || locationError} onValueChange={(value) => void chooseCity(value)} /></Field>
-      <Field id="barangay" label="Barangay" error={errors.barangay}><PortalSelect id="barangay" label="Barangay" searchable value={barangays.find((item) => item.name === form.barangay)?.code || ""} options={placeOptions(barangays)} placeholder={text("barangay") || "Select barangay"} disabled={!cityCode || locationError} onValueChange={(value) => set("barangay", barangays.find((item) => item.code === value)?.name || "")} /></Field>
-      <TextField id="house_number" label="House or lot number" value={text("house_number")} onChange={(value) => set("house_number", value)} error={errors.house_number} maxLength={50} />
-      <TextField id="block_number" label="Block" value={text("block_number")} onChange={(value) => set("block_number", value)} error={errors.block_number} maxLength={50} />
-      <TextField id="building_floor" label="Building or floor" value={text("building_floor")} onChange={(value) => set("building_floor", value)} error={errors.building_floor} maxLength={50} />
-      <Field id="residence" label="Street address" error={errors.residence}><Textarea id="residence" value={form.residence} onChange={(event) => set("residence", event.target.value)} required maxLength={500} aria-invalid={!!errors.residence} rows={2} /></Field>
+    <Section title="Residential address" description="Region, province, city or municipality, and barangay are required. Street details are optional.">
+      {locationError && <div className="lp-admin-field lp-admin-span"><PortalStatus kind="error" title="Address choices are unavailable.">Reload to try again before choosing a required location.</PortalStatus></div>}
+      <Field id="region" label="Region (required)" error={errors.region}><PortalSelect id="region" label="Region" required invalid={!!errors.region} describedBy={errors.region ? "region-error" : undefined} searchable value={regionCode} options={placeOptions(regions)} placeholder={text("region") || "Select region"} disabled={locationError} onValueChange={(value) => void chooseRegion(value)} /></Field>
+      <Field id="province" label="Province (required)" error={errors.province}><PortalSelect id="province" label="Province" required invalid={!!errors.province} describedBy={errors.province ? "province-error" : undefined} searchable value={provinceCode} options={placeOptions(provinces)} placeholder={text("province") || "Select province"} disabled={!regionCode || locationError} onValueChange={(value) => void chooseProvince(value)} /></Field>
+      <Field id="city" label="City or municipality (required)" error={errors.city}><PortalSelect id="city" label="City or municipality" required invalid={!!errors.city} describedBy={errors.city ? "city-error" : undefined} searchable value={cityCode} options={placeOptions(cities)} placeholder={text("city") || "Select city or municipality"} disabled={!provinceCode || locationError} onValueChange={(value) => void chooseCity(value)} /></Field>
+      <Field id="barangay" label="Barangay (required)" error={errors.barangay}><PortalSelect id="barangay" label="Barangay" required invalid={!!errors.barangay} describedBy={errors.barangay ? "barangay-error" : undefined} searchable value={barangays.find((item) => item.name === form.barangay)?.code || ""} options={placeOptions(barangays)} placeholder={text("barangay") || "Select barangay"} disabled={!cityCode || locationError} onValueChange={(value) => set("barangay", barangays.find((item) => item.code === value)?.name || "")} /></Field>
+      <TextField id="house_number" label="House or lot number (optional)" value={text("house_number")} onChange={(value) => set("house_number", value)} error={errors.house_number} maxLength={50} />
+      <TextField id="block_number" label="Block (optional)" value={text("block_number")} onChange={(value) => set("block_number", value)} error={errors.block_number} maxLength={50} />
+      <TextField id="building_floor" label="Building or floor (optional)" value={text("building_floor")} onChange={(value) => set("building_floor", value)} error={errors.building_floor} maxLength={50} />
+      <Field id="residence" label="Street address (optional)" error={errors.residence}><Textarea id="residence" value={form.residence} onChange={(event) => set("residence", event.target.value)} maxLength={500} aria-invalid={!!errors.residence} rows={2} /></Field>
     </Section>
     {submitError && <PortalStatus kind="error" title="Employee could not be saved.">{submitError}</PortalStatus>}
     <div className="lp-admin-form-actions"><Button type="button" variant="outline" onClick={onCancel} disabled={saving}>Cancel</Button><Button type="submit" disabled={saving}>{saving && <Loader2 className="size-4 animate-spin" />}{submitLabel}</Button></div>
