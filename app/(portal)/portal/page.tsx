@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from
 import { format, isValid, parseISO } from "date-fns";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { ProfilePhoto, ProfileAvatar, employeePhotoUrl } from "@/components/portal/profile-photo";
 import { PortalHeading, PortalStatus } from "@/components/portal/design";
 import { PortalDatePicker, PortalSelect } from "@/components/portal/selection";
 import { Badge } from "@/components/ui/badge";
@@ -121,7 +122,8 @@ export default function PortalProfilePage() {
   const positionOptions = positions.map((p) => ({ value: String(p.id), label: p.title }));
   return <>
     <PortalHeading eyebrow="My account" title="My profile">Keep your contact and employment information up to date.</PortalHeading>
-    <div className="lp-profile-identity"><span className="lp-avatar lp-avatar-large">{profile.initials}</span><div><h2>{profile.full_name}</h2><p>{profile.username} · Municipal employee</p></div><Badge variant="secondary">{profile.is_active ? "Active" : "Inactive"}</Badge></div>
+    <div className="lp-profile-identity"><ProfileAvatar photo={employeePhotoUrl(profile)} initials={profile.initials} /><div><h2>{profile.full_name}</h2><p>{profile.username} · Municipal employee</p></div><Badge variant="secondary">{profile.is_active ? "Active" : "Inactive"}</Badge></div>
+    <ProfilePhoto employee={profile} onSaved={(updated) => setProfile((old) => old ? { ...old, avatar_version: updated.avatar_version, avatar_endpoint: updated.avatar_endpoint } : old)} />
     {saved && <PortalStatus kind="success" title="Profile changes saved." />}
     <form className="lp-profile-form" onSubmit={save}>
       <div className="lp-section-heading"><div><h2>Personal & employment details</h2><p>Name and username are maintained by your administrator.</p></div>{!editing && <Button type="button" variant="outline" onClick={() => { setSaved(false); setEditing(true); }}>Edit profile</Button>}</div>

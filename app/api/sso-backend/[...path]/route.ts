@@ -24,6 +24,22 @@ function clearLegacyCookies(result: NextResponse) {
   }
 }
 
+async function boundedBody(body: ReadableStream<Uint8Array> | null, limit: number): Promise<Uint8Array<ArrayBuffer>> {
+  if (!body) return new Uint8Array();
+  const reader = body.getReader(); const chunks: Uint8Array[] = []; let size = 0;
+  try {
+    for (;;) {
+      const { done, value } = await reader.read(); if (done) break;
+      size += value.byteLength;
+      if (size > limit) { await reader.cancel(); throw new RangeError("Request too large"); }
+      chunks.push(value);
+    }
+  } finally { reader.releaseLock(); }
+  const result = new Uint8Array(size); let offset = 0;
+  for (const chunk of chunks) { result.set(chunk, offset); offset += chunk.byteLength; }
+  return result;
+}
+
 async function proxy(request: NextRequest, context: { params: Promise<{ path: string[] }> }) {
   const method = request.method;
   const origin = request.headers.get("origin");
@@ -52,16 +68,25 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path: st
     if (clientIp) headers.set("X-Forwarded-For", clientIp);
   }
 
+  let body: Uint8Array<ArrayBuffer> | undefined;
+  if (!["GET", "HEAD"].includes(method)) {
+    try { body = await boundedBody(request.body, 6 * 1024 * 1024); }
+    catch { return jsonError("The upload is too large. Choose a photo up to 5 MB.", 413); }
+  }
   let upstream: Response;
   let responseBody: string;
   try {
     upstream = await fetch(target, {
       method, headers,
-      body: ["GET", "HEAD"].includes(method) ? undefined : await request.text(),
+      body,
       cache: "no-store",
       redirect: "error",
       signal: AbortSignal.timeout(10_000),
     });
+    if (upstream.ok && upstream.headers.get("content-type")?.split(";")[0] === "image/webp") {
+      const bytes = await boundedBody(upstream.body, 512 * 1024);
+      return new NextResponse(bytes, { status: 200, headers: { "Content-Type": "image/webp", "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff" } });
+    }
     responseBody = await upstream.text();
   } catch {
     return jsonError("Sign-in service is temporarily unavailable. Please try again.", 503);

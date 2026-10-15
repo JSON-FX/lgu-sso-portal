@@ -72,3 +72,7 @@ npx tsc --noEmit
 npm run lint
 npm run build
 ```
+
+### Shared profile photos
+
+Employees and SSO super administrators can upload, replace and remove the shared default photo. Applications read it through the confidential directory photo endpoint and may keep a local override. See [integration guide](LGU-SSO-INTEGRATION-GUIDE.md#shared-employee-profile-photos).

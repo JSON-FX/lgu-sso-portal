@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { AppWindow, BriefcaseBusiness, ChevronDown, FileText, KeyRound, LayoutGrid, Landmark, Loader2, LogOut, Menu, Settings2, UserRound, Users } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/use-auth";
+import { ProfileAvatar, employeePhotoUrl } from "./profile-photo";
 import { PortalBrand, PortalStatus } from "@/components/portal/design";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -103,7 +104,7 @@ export function WorkspaceShell({ admin = false, children }: { admin?: boolean; c
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="lp-account" aria-label={`Account menu for ${accountName}`}>
-              <span className="lp-avatar">{user?.initials || accountName.slice(0, 2).toUpperCase()}</span>
+              <ProfileAvatar size="small" photo={user ? employeePhotoUrl(user) : null} initials={user?.initials || accountName.slice(0, 2).toUpperCase()} />
               <span>{accountName}<small>{admin ? "Super administrator" : "Municipal employee"}</small></span>
               <ChevronDown size={16} aria-hidden="true" />
             </Button>

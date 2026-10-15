@@ -30,6 +30,8 @@ export interface Employee {
   suffix: string | null;
   full_name: string;
   initials: string;
+  avatar_version?: string | null;
+  avatar_endpoint?: string | null;
   birthday: string;
   age: number;
   civil_status: "single" | "married" | "widowed" | "separated" | "divorced";
