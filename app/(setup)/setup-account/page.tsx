@@ -21,13 +21,14 @@ function SetupAccountContent() {
   const searchParams = useSearchParams();
   const minLength = newPassword.length >= 6;
   const hasNumber = /\d/.test(newPassword);
+  const isNewPassword = !!newPassword && newPassword !== currentPassword;
   const passwordsMatch = !!confirmPassword && newPassword === confirmPassword;
 
   const handleSetPassword = async (event: React.FormEvent) => {
     event.preventDefault();
     setError("");
-    if (!minLength || !hasNumber || !passwordsMatch) {
-      setError("Use at least 6 characters, include a number, and confirm your new password.");
+    if (!minLength || !hasNumber || !passwordsMatch || !isNewPassword) {
+      setError("Choose a different password with at least 6 characters and a number, then confirm it.");
       return;
     }
     setIsSubmitting(true);
@@ -61,9 +62,9 @@ function SetupAccountContent() {
       {stage === "welcome" && (
         <div className="space-y-6">
           <p className="text-muted-foreground">
-            {user?.first_name ? `${user.first_name}, your` : "Your"} administrator created your account. Set a personal password before using connected services.
+            {user?.first_name ? `${user.first_name}, your` : "Your"} account needs a personal password. Replace your temporary password before using connected services.
           </p>
-          <Button onClick={() => setStage("password")} className="lp-submit">Set up my account <ArrowRight /></Button>
+          <Button onClick={() => setStage("password")} className="lp-submit">Create my password <ArrowRight /></Button>
         </div>
       )}
       {stage === "password" && (
@@ -73,11 +74,12 @@ function SetupAccountContent() {
           <div className="space-y-2" aria-live="polite">
             <Requirement met={minLength}>At least 6 characters</Requirement>
             <Requirement met={hasNumber}>Contains a number</Requirement>
+            <Requirement met={isNewPassword}>Different from your temporary password</Requirement>
           </div>
           <PasswordInput id="confirm-password" label="Confirm new password" autoComplete="new-password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} required disabled={isSubmitting} />
           {!!confirmPassword && <Requirement met={passwordsMatch}>Passwords match</Requirement>}
           {error && <PortalStatus kind="error" title="Password not updated.">{error}</PortalStatus>}
-          <Button className="lp-submit" type="submit" disabled={isSubmitting || !currentPassword || !minLength || !hasNumber || !passwordsMatch}>
+          <Button className="lp-submit" type="submit" disabled={isSubmitting || !currentPassword || !minLength || !hasNumber || !passwordsMatch || !isNewPassword}>
             {isSubmitting ? <><Loader2 className="animate-spin" /> Saving…</> : <>Save password <ArrowRight /></>}
           </Button>
         </form>

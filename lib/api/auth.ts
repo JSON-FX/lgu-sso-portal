@@ -6,7 +6,7 @@
 
 import { apiClient } from "./client";
 import { AuthUser, LoginResponse, MessageResponse } from "@/types";
-import { RegisterData, RegisterResponse, ChangePasswordData } from "@/types/auth";
+import { RegisterData, RegisterResponse, RegistrationOptions, ChangePasswordData } from "@/types/auth";
 
 export const authApi = {
   async login({ username, password }: { username: string; password: string }): Promise<LoginResponse> {
@@ -30,6 +30,10 @@ export const authApi = {
 
   async refresh(): Promise<{ token_type: string }> {
     return apiClient.post<{ token_type: string }>("/auth/refresh");
+  },
+
+  async registrationOptions(): Promise<{ data: RegistrationOptions }> {
+    return apiClient.get("/auth/registration-options");
   },
 
   async register(data: RegisterData): Promise<RegisterResponse> {

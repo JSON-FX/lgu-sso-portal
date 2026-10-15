@@ -5,7 +5,7 @@ const COOKIE_NAME = SECURE ? "__Host-portal_session" : "portal_session";
 const API_URL = process.env.SSO_API_URL || process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000/api/v1";
 const PORTAL_ORIGIN = process.env.SSO_PORTAL_ORIGIN;
 const LEGACY_DOMAIN = process.env.SSO_LEGACY_COOKIE_DOMAIN;
-const AUTH_PATHS = new Set(["login", "logout", "logout-all", "refresh", "me", "change-password"]);
+const AUTH_PATHS = new Set(["login", "logout", "logout-all", "refresh", "me", "change-password", "register", "registration-options"]);
 const PORTAL_PATHS = new Set(["employees", "applications", "audit", "stats", "offices", "positions", "locations", "portal"]);
 
 function jsonError(message: string, status: number) {
