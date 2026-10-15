@@ -15,7 +15,7 @@ afterEach(() => { global.fetch = originalFetch; });
 function handler(fetch, overrides = {}) {
   const exports = {};
   vm.runInNewContext(source, {
-    exports, require, URL, Headers, Response, AbortSignal, Set,
+    exports, require, URL, Headers, Response, AbortSignal, Set, Uint8Array, RangeError,
     fetch,
     process: { env: {
       NODE_ENV: 'production', SSO_API_URL: 'http://backend/api/v1',
@@ -126,7 +126,7 @@ test('office writes preserve payloads and validation responses through the centr
     const result = await routes[method](request(path, { method, body, cookie: '__Host-portal_session=central', headers: { Authorization: 'Bearer attacker' } }), context(path));
     assert.equal(seen.url, 'http://backend/api/v1/' + path);
     assert.equal(seen.init.method, method);
-    assert.deepEqual(JSON.parse(seen.init.body), body);
+    assert.deepEqual(JSON.parse(new TextDecoder().decode(seen.init.body)), body);
     assert.equal(seen.init.headers.get('Authorization'), 'Bearer central');
     assert.equal(result.status, 422);
     assert.deepEqual(await result.json(), errors);
@@ -164,7 +164,7 @@ test('position management uses the central cookie and enforces the same write or
     const response = await routes[method](request(path, { method, body, cookie: '__Host-portal_session=central', headers: { Authorization: 'Bearer attacker' } }), context(path));
     assert.equal(response.status, 200);
     assert.equal(seen.url, 'http://backend/api/v1/' + path);
-    assert.deepEqual(JSON.parse(seen.init.body), body);
+    assert.deepEqual(JSON.parse(new TextDecoder().decode(seen.init.body)), body);
     assert.equal(seen.init.headers.get('Authorization'), 'Bearer central');
   }
   let seen;
@@ -179,4 +179,33 @@ test('position management uses the central cookie and enforces the same write or
     }
   }
   assert.equal(seen, null);
+});
+
+test('photo upload preserves multipart binary bytes and central-cookie authorization', async () => {
+  const bytes = new Uint8Array([0, 255, 128, 13, 10, 42]);
+  let seen;
+  const routes = handler(async (url, init) => { seen = init; return Response.json({ data: { avatar_version: 'new' } }); });
+  const req = new NextRequest('https://portal.example/api/sso-backend/portal/profile/avatar', {
+    method: 'POST', headers: { Origin: 'https://portal.example', 'Content-Type': 'multipart/form-data; boundary=example', Cookie: '__Host-portal_session=central' }, body: bytes,
+  });
+  assert.equal((await routes.POST(req, context('portal/profile/avatar'))).status, 200);
+  assert.deepEqual([...seen.body], [...bytes]);
+  assert.equal(seen.headers.get('Content-Type'), 'multipart/form-data; boundary=example');
+  assert.equal(seen.headers.get('Authorization'), 'Bearer central');
+});
+
+test('photo proxy returns exact private image bytes and bounds uploads', async () => {
+  const bytes = new Uint8Array([82, 73, 70, 70, 0, 255, 128]);
+  const routes = handler(async () => new Response(bytes, { headers: { 'Content-Type': 'image/webp' } }));
+  const image = await routes.GET(request('portal/profile/avatar', { method: 'GET' }), context('portal/profile/avatar'));
+  assert.deepEqual([...new Uint8Array(await image.arrayBuffer())], [...bytes]);
+  assert.equal(image.headers.get('Cache-Control'), 'private, no-store');
+  assert.equal(image.headers.get('X-Content-Type-Options'), 'nosniff');
+  let fetched = false;
+  const limited = handler(async () => { fetched = true; return Response.json({}); });
+  const req = new NextRequest('https://portal.example/api/sso-backend/portal/profile/avatar', {
+    method: 'POST', headers: { Origin: 'https://portal.example' }, body: new Uint8Array(6 * 1024 * 1024 + 1),
+  });
+  assert.equal((await limited.POST(req, context('portal/profile/avatar'))).status, 413);
+  assert.equal(fetched, false);
 });

@@ -44,7 +44,7 @@ async function fetchApi<T>(endpoint: string, options: FetchOptions = {}): Promis
 
   // Build headers
   const headers: HeadersInit = {
-    "Content-Type": "application/json",
+    ...(options.body instanceof FormData ? {} : { "Content-Type": "application/json" }),
     Accept: "application/json",
     ...options.headers,
   };
@@ -75,6 +75,7 @@ async function fetchApi<T>(endpoint: string, options: FetchOptions = {}): Promis
 }
 
 export const apiClient = {
+  upload: <T>(endpoint: string, body: FormData) => fetchApi<T>(endpoint, { method: "POST", body }),
   get: <T>(endpoint: string, params?: Record<string, string | number | boolean | undefined>) =>
     fetchApi<T>(endpoint, { method: "GET", params }),
 
