@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { AuthShell, PasswordInput, PortalStatus } from "@/components/portal/design";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,7 @@ import { ArrowRight, FileText, Loader2 } from "lucide-react";
 
 import { toast } from "sonner";
 import { ssoApi } from "@/lib/api";
+import { useRetryCooldown } from "@/hooks/use-retry-cooldown";
 import { useAuth } from "@/hooks/use-auth";
 
 type ValidationState =
@@ -29,6 +30,8 @@ function SSOLoginContent() {
     status: "loading",
   });
   const { login: authLogin } = useAuth();
+  const cooldown = useRetryCooldown();
+  const submitting = useRef(false);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -89,6 +92,8 @@ function SSOLoginContent() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submitting.current || cooldown.isCoolingDown()) return;
+    submitting.current = true;
     setLoginError("");
     setIsSubmitting(true);
 
@@ -111,8 +116,10 @@ function SSOLoginContent() {
         err instanceof Error && err.message
           ? err.message
           : "Invalid username or password. Please try again.";
+      cooldown.start(err);
       setLoginError(message);
     } finally {
+      submitting.current = false;
       setIsSubmitting(false);
     }
   };
@@ -148,7 +155,9 @@ function SSOLoginContent() {
               <Input id="username" name="username" autoComplete="username" placeholder="Enter your username" value={username} onChange={(event) => setUsername(event.target.value)} required disabled={isSubmitting} aria-invalid={!!loginError} />
             </div>
             <PasswordInput id="password" label="Password" name="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} required disabled={isSubmitting} aria-invalid={!!loginError} />
-            <Button className="lp-submit" type="submit" disabled={isSubmitting}>
+            <p className="lp-muted">Use your generated username, not your email address.</p>
+            {cooldown.seconds > 0 && <p className="lp-muted" role="timer" aria-live="off">Try again in {cooldown.seconds} seconds. Your entries are kept.</p>}
+            <Button className="lp-submit" type="submit" disabled={isSubmitting || cooldown.seconds > 0}>
               {isSubmitting ? <><Loader2 className="animate-spin" /> Signing in…</> : <>Sign in and continue <ArrowRight /></>}
             </Button>
           </form>

@@ -11,13 +11,26 @@ const API_BASE_URL = "/api/sso-backend";
 export class ApiError extends Error {
   status: number;
   errors?: Record<string, string[]>;
+  retryAfter?: number;
 
-  constructor(message: string, status: number, errors?: Record<string, string[]>) {
+  constructor(message: string, status: number, errors?: Record<string, string[]>, retryAfter?: number) {
     super(message);
     this.name = "ApiError";
     this.status = status;
     this.errors = errors;
+    this.retryAfter = retryAfter;
   }
+}
+
+// This API sends delta-seconds, not HTTP dates. Bound unexpected values to one hour.
+export function parseRetryAfter(header: string | null, body?: unknown): number | undefined {
+  for (const value of [header, body]) {
+    if (typeof value !== "number" && typeof value !== "string") continue;
+    if (!/^\d+$/.test(String(value).trim())) continue;
+    const seconds = Number(value);
+    if (Number.isSafeInteger(seconds) && seconds >= 0) return Math.min(seconds, 3600);
+  }
+  return undefined;
 }
 
 interface FetchOptions extends RequestInit {
@@ -67,7 +80,8 @@ async function fetchApi<T>(endpoint: string, options: FetchOptions = {}): Promis
     throw new ApiError(
       errorData.message || "An error occurred",
       response.status,
-      errorData.errors
+      errorData.errors,
+      response.status === 429 ? parseRetryAfter(response.headers.get("Retry-After"), (data as { retry_after?: unknown }).retry_after) : undefined
     );
   }
 

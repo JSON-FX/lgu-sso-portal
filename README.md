@@ -85,3 +85,11 @@ Employees and SSO super administrators can upload, replace and remove the shared
 Superadministrators can generate a one-time temporary password from an employee's detail page. Existing sessions end, and the employee must choose a different personal password at next sign-in. Temporary credentials remain only in the open dialog and are cleared on Done. The acting administrator uses Change my password for their own account.
 
 The local design catalog includes `Pages/Self registration` states. See `docs/storybook-source-sync.md` for canonical component sources. Public signup is not identity or employment verification.
+
+### Login and registration cooldowns
+
+When the backend responds with HTTP 429, the Portal preserves its numeric `Retry-After` header (or numeric `retry_after` body fallback). It accepts nonnegative integer seconds and caps UI waits at one hour. Invalid or missing delays preserve the original error without inventing a countdown.
+
+Login, application sign-in, and the shared employee/registration form retain entered fields and block repeated submission until the deadline. The countdown uses elapsed time, stays outside live error announcements, and never resubmits automatically. Navigation resets this UI hint; server limits remain authoritative. Users still sign in with their generated username, not their email address.
+
+Run `npm test` for parser, deadline cleanup, and form submission regressions. Browser acceptance uses an isolated local mock backend returning 429; it must not submit test credentials to production.
