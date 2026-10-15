@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { useRetryCooldown } from "@/hooks/use-retry-cooldown";
 import { api, ApiError } from "@/lib/api";
 import { psgcApi, type PSGCBarangay, type PSGCMunicipality, type PSGCProvince, type PSGCRegion } from "@/lib/api/psgc";
 import type { CreateEmployeeData, Employee, Office, Position } from "@/types";
@@ -61,6 +62,7 @@ export function EmployeeForm({ initial, onSave, onCancel, submitLabel, registrat
   const [submitError, setSubmitError] = useState("");
   const [saving, setSaving] = useState(false);
   const submitting = useRef(false);
+  const cooldown = useRetryCooldown();
   const [offices, setOffices] = useState<Office[]>([]);
   const [positions, setPositions] = useState<Position[]>([]);
   const [regions, setRegions] = useState<PSGCRegion[]>([]);
@@ -123,7 +125,7 @@ export function EmployeeForm({ initial, onSave, onCancel, submitLabel, registrat
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (submitting.current) return;
+    if (submitting.current || cooldown.isCoolingDown()) return;
     setSubmitError("");
     const problems: Record<string, string> = { ...validateExtra?.() };
     if (registration && !form.email?.trim()) problems.email = "Enter your email address.";
@@ -141,6 +143,7 @@ export function EmployeeForm({ initial, onSave, onCancel, submitLabel, registrat
     setSaving(true);
     try { await onSave(values); }
     catch (cause) {
+      cooldown.start(cause);
       if (cause instanceof ApiError && cause.errors) setErrors(Object.fromEntries(Object.entries(cause.errors).map(([key, messages]) => [key, messages[0] || "Invalid value."])));
       setSubmitError(cause instanceof Error ? cause.message : "We couldn’t save this employee. Try again.");
     } finally { submitting.current = false; setSaving(false); }
@@ -180,6 +183,7 @@ export function EmployeeForm({ initial, onSave, onCancel, submitLabel, registrat
     </Section>
     {afterFields?.(errors, saving)}
     {submitError && <PortalStatus kind="error" title={registration ? "Account could not be created." : "Employee could not be saved."}>{submitError}</PortalStatus>}
-    <div className="lp-admin-form-actions"><Button type="button" variant="outline" onClick={onCancel} disabled={saving}>Cancel</Button><Button type="submit" disabled={saving}>{saving && <Loader2 className="size-4 animate-spin" />}{submitLabel}</Button></div>
+    {cooldown.seconds > 0 && <p className="lp-muted" role="timer" aria-live="off">Try again in {cooldown.seconds} seconds. Your entries are kept.</p>}
+    <div className="lp-admin-form-actions"><Button type="button" variant="outline" onClick={onCancel} disabled={saving}>Cancel</Button><Button type="submit" disabled={saving || cooldown.seconds > 0}>{saving && <Loader2 className="size-4 animate-spin" />}{submitLabel}</Button></div>
   </form>;
 }
