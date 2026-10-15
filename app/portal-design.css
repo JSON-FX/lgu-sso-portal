@@ -181,7 +181,7 @@
 .lp-admin-empty { padding: 44px 12px; color: var(--muted-foreground); text-align: center; }
 .lp-admin-pagination { display: flex; justify-content: space-between; align-items: center; gap: 20px; padding: 16px 0; color: var(--muted-foreground); font-size: 14px; }
 .lp-admin-pagination > div { display: flex; align-items: center; gap: 12px; }
-:focus-visible { outline: 2px solid var(--ring); outline-offset: 3px; }
+:focus-visible:not([data-slot="command-input"]) { outline: 2px solid var(--ring); outline-offset: 3px; }
 @media (max-width: 1000px) {
   .lp-with-rail { grid-template-columns: 210px minmax(0,1fr); }
   .lp-main { padding: 36px 24px 60px; }

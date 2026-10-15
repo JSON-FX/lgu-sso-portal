@@ -349,7 +349,7 @@ export const mockEmployeeApi = {
       must_change_password: true,
       is_active: true,
       nationality: data.nationality,
-      residence: data.residence,
+      residence: data.residence || null,
       block_number: data.block_number || null,
       building_floor: data.building_floor || null,
       house_number: data.house_number || null,

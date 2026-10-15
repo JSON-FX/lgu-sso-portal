@@ -42,3 +42,16 @@ The new position catalog follows the already approved Public Index office patter
 | `projects/lgu-portal/src/portal-prototype.tsx` | `debdca99e31b904ba96255d57f378d2ee46c08ae7ffbc57804f0da3de76e122a` |
 
 Live mapping: `components/portal/position-management.tsx` uses `lib/api/positions.ts`; `components/portal/office-management.tsx` uses `lib/api/offices.ts`. Both use `lib/directory-csv.ts` for export and the current Radix primitives. The position view reuses `app/offices.css`; no new tokens or dependencies were added.
+
+## Employee address and selection fix — 2026-10-15
+
+The owner annotations require region, province, city/municipality and barangay. Street, house/lot, block and building/floor remain optional. The catalog now documents those states and required-field errors. Composite selections use a single focus treatment around the complete control; the application Radix command search uses an inset wrapper outline to avoid clipping. The catalog retains its Base UI primitives, while the application retains its official shadcn Radix primitives. No dependency stack was replaced.
+
+| Storybook source | SHA-256 |
+| --- | --- |
+| `packages/lgu-portal-ui/src/styles.css` | `ded416809d71b4940ea723be379583645ac25b0bfc7bd90be4ffbf64604066e0` |
+| `packages/lgu-portal-ui/src/selection.tsx` | `09f3edddbf495889c1644bce9ad4f13721af83203e27ffae532a96691cb93ebb` |
+| `projects/lgu-portal/src/admin-pages.tsx` | `f36e1ccd5ce743280ba24363683e19fcc5011ee629fdaba49a6f92fc0363af2b` |
+| `projects/lgu-portal/src/selection.stories.tsx` | `0b91243f9fc84f56fde3218018a451deba63882e86930c93f5c8cbffb3083941` |
+
+Official `@shadcn/command` and `@shadcn/popover` source and combobox demo were inspected through the MCP registry. The command source was also obtained through the official CLI view command. Storybook typecheck, full catalog build and Docker publication passed; the required/error selection state and keyboard selection were inspected before application integration. The live form and release are verified separately.
