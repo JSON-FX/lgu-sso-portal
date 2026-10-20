@@ -123,3 +123,43 @@ test('registration form keeps details and blocks duplicate requests until the de
   assert.equal(calls, 1); assert.equal(nodes(tree).find(n => n.props?.type === 'submit').props.disabled, false);
   await tree.props.onSubmit({ preventDefault() {} }); assert.equal(calls, 2); h.unmount();
 });
+
+test('personal details format on blur and submit without changing other inputs', async () => {
+  const h = harness();
+  const Form = load('components/portal/employee-form.tsx', {
+    react: { ...h.react, useEffect() {} }, 'date-fns': { format: () => '2026-10-20' }, 'lucide-react': {},
+    '@/hooks/use-retry-cooldown': h.hook, '@/lib/api': client, '@/lib/api/psgc': { psgcApi: {} },
+    '@/components/portal/design': { PortalStatus: 'PortalStatus' }, '@/components/portal/selection': {},
+    '@/components/ui/button': { Button: 'Button' }, '@/components/ui/input': { Input: 'Input' },
+    '@/components/ui/label': { Label: 'Label' }, '@/components/ui/textarea': { Textarea: 'Textarea' },
+  }, h.globals).EmployeeForm;
+  let saved;
+  const props = { registration: true, submitLabel: 'Create account', initial: {
+    first_name: 'OLD', middle_name: 'DELA CRUZ', last_name: "O’NEILL", birthday: '1990-01-01',
+    nationality: 'FILIPINO', email: 'PERSONAL@example.test', suffix: 'III',
+    region: 'REGION X', province: 'BUKIDNON', city: 'QUEZON', barangay: 'POBLACION', residence: 'BLK ABC ROAD',
+  }, onSave: async values => { saved = values; } };
+  let tree = h.render(() => Form(props));
+  const field = nodes(tree).find(n => n.props?.id === 'first_name');
+  const input = nodes(field.type(field.props)).find(n => n.type === 'Input');
+  input.props.onChange({ target: { value: '  MARÍA   ANA-MAY ' } });
+  tree = h.render(() => Form(props));
+  assert.equal(nodes(tree).find(n => n.props?.id === 'first_name').props.value, '  MARÍA   ANA-MAY ');
+  input.props.onBlur({ target: { value: '  MARÍA   ANA-MAY ' } });
+  tree = h.render(() => Form(props));
+  assert.equal(nodes(tree).find(n => n.props?.id === 'first_name').props.value, 'María Ana-May');
+  for (const id of ['email', 'suffix', 'house_number']) {
+    const field = nodes(tree).find(n => n.props?.id === id);
+    assert.equal(nodes(field.type(field.props)).find(n => n.type === 'Input').props.onBlur, undefined);
+  }
+  await tree.props.onSubmit({ preventDefault() {} });
+  assert.equal(saved.first_name, 'María Ana-May');
+  assert.equal(saved.middle_name, 'Dela Cruz');
+  assert.equal(saved.last_name, 'O’Neill');
+  assert.equal(saved.nationality, 'Filipino');
+  assert.equal(saved.email, 'PERSONAL@example.test');
+  assert.equal(saved.suffix, 'III');
+  assert.equal(saved.region, 'REGION X');
+  assert.equal(saved.residence, 'BLK ABC ROAD');
+  h.unmount();
+});
